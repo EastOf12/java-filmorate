@@ -34,8 +34,7 @@ public class UserServiceTest {
 
         //Проверяем, что пользователь с правильными параметрыми успешно добавлен.
         assertEquals(1, userService.getUsers().size(), "Должен быть 1 пользователь");
-        assertEquals(user, userService.getUsers().get((long) 1)
-                , "Пользователи должны быть равны");
+        assertEquals(user, userService.getUsers().get((long) 1), "Пользователи должны быть равны");
     } //Проверяем корректность добавления пользователя с правильными параметрами.
 
     @Test
@@ -70,20 +69,20 @@ public class UserServiceTest {
 
         //Проверяем, что пользователь создан
         assertEquals(1, userService.getUsers().size(), "Должен быть 1 пользователь.");
-        assertEquals(user.getName(), userService.getUsers().get((long) 1).getLogin()
-                , "Имя пользователя должно быть равно логину.");
+        assertEquals(user.getName(), userService.getUsers().get((long) 1).getLogin(),
+                "Имя пользователя должно быть равно логину.");
     } //Проверяем корректность работы валидации на название фильма
 
     @Test
     public void shouldReturnPositiveWhenMailValidationIsCorrect() {
         //Делаем email пользователя некорректным и проверяем валидацию.
         user.setEmail("");
-        assertThrows(ValidationException.class, () -> userService.create(user)
-                , "Должно быть выброшено исключение ValidationException");
+        assertThrows(ValidationException.class, () -> userService.create(user),
+                "Должно быть выброшено исключение ValidationException");
 
         user.setEmail("12313gmail");
-        assertThrows(ValidationException.class, () -> userService.create(user)
-                , "Должно быть выброшено исключение ValidationException");
+        assertThrows(ValidationException.class, () -> userService.create(user),
+                "Должно быть выброшено исключение ValidationException");
 
         assertEquals(0, userService.getUsers().size(), "Не должно быть добавленных пользователей.");
     } //Проверяем корректность работы валидации на email от пользователя
@@ -92,12 +91,12 @@ public class UserServiceTest {
     public void shouldReturnPositiveWhenLoginValidationIsCorrect() {
         //Делаем логин пользователя некорректным и проверяем валидацию.
         user.setLogin("");
-        assertThrows(ValidationException.class, () -> userService.create(user)
-                , "Должно быть выброшено исключение ValidationException");
+        assertThrows(ValidationException.class, () -> userService.create(user),
+                "Должно быть выброшено исключение ValidationException");
 
         user.setLogin("my login");
-        assertThrows(ValidationException.class, () -> userService.create(user)
-                , "Должно быть выброшено исключение ValidationException");
+        assertThrows(ValidationException.class, () -> userService.create(user),
+                "Должно быть выброшено исключение ValidationException");
         assertEquals(0, userService.getUsers().size(), "Не должно быть добавленных пользователей.");
     } //Проверяем корректность работы валидации на логин пользователя
 
@@ -105,8 +104,8 @@ public class UserServiceTest {
     public void shouldReturnPositiveWhenBirthdayValidationIsCorrect() {
         //Делаем дату рождения некорректной и проверяем валидацию.
         user.setBirthday(LocalDate.now().plusDays(1));
-        assertThrows(ValidationException.class, () -> userService.create(user)
-                , "Должно быть выброшено исключение ValidationException");
+        assertThrows(ValidationException.class, () -> userService.create(user),
+                "Должно быть выброшено исключение ValidationException");
 
         assertEquals(0, userService.getUsers().size(), "Не должно быть добавленных пользователей.");
     } //Проверяем корректность работы валидации на длительность фильма
