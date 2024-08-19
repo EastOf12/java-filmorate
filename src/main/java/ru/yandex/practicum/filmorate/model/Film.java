@@ -11,7 +11,7 @@ public class Film {
     Long id;
     String name;
     String description;
-    Duration duration;
+    int duration;
 
     @JsonFormat(pattern = "yyyy-MM-dd")
     LocalDate releaseDate;

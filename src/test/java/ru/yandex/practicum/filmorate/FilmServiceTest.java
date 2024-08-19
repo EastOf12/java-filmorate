@@ -25,7 +25,7 @@ public class FilmServiceTest {
         film.setName("Человек паук");
         film.setDescription("Человека укусил паук и тот стал супер героем.");
         film.setReleaseDate(LocalDate.of(2004, 12, 12));
-        film.setDuration(Duration.ofSeconds(1000));
+        film.setDuration(1000);
     }
 
     @Test
@@ -50,7 +50,7 @@ public class FilmServiceTest {
         filmNew.setName("Новый человек паук");
         filmNew.setDescription("Человека укусил паук и тот стал супер героем.");
         filmNew.setReleaseDate(LocalDate.of(2024, 12, 12));
-        filmNew.setDuration(Duration.ofSeconds(1000));
+        filmNew.setDuration(1000);
         filmNew.setId((long) 1);
 
         //Обновляем фильм
@@ -110,12 +110,12 @@ public class FilmServiceTest {
     @Test
     public void shouldReturnPositiveWhenDurationValidationIsCorrect() {
         //Делаем длительность фильма некорректной и проверяем валидацию.
-        film.setDuration(Duration.ofSeconds(-1));
+        film.setDuration(-1);
         assertThrows(ValidationException.class, () -> filmService.create(film),
                 "Должно быть выброшено исключение ValidationException");
 
         //Проверяем корректность с минимальной длительностью фильма
-        film.setDuration(Duration.ofSeconds(0));
+        film.setDuration(0);
         filmService.create(film);
         assertEquals(1, filmService.getFilms().size(), "Должен быть 1 добавленный фильм");
     } //Проверяем корректность работы валидации на длительность фильма

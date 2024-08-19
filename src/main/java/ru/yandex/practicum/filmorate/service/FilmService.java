@@ -80,9 +80,9 @@ public class FilmService {
                     + film.getReleaseDate());
 
             throw new ValidationException("Дата релиза — не раньше 28 декабря 1895 года.");
-        } else if (film.getDuration().getSeconds() < 0) {
+        } else if (film.getDuration() < 0) {
             log.warn("Валидация не пройдена. " +
-                    "Продолжительность фильма в запросе " + film.getDuration().getSeconds());
+                    "Продолжительность фильма в запросе " + film.getDuration());
 
             throw new ValidationException("Продолжительность фильма должна быть положительным числом.");
         }
