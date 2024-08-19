@@ -18,7 +18,7 @@ import java.util.Map;
 @Getter
 @Service
 public class UserService {
-    private final static Logger log = LoggerFactory.getLogger(FilmService.class);
+    private static final Logger log = LoggerFactory.getLogger(FilmService.class);
 
     private final Map<Long, User> users = new HashMap<>();
 
