@@ -43,8 +43,8 @@ public class UserServiceTest {
     public void shouldReturnPositiveWhenUpdateUserIsCorrect() {
         //Добавляем пользователя
         userService.create(user);
-        assertEquals(1, Objects.requireNonNull(userService.getAll().stream().findFirst().
-                orElse(null)).getId(), "Пользователь должен быть 1");
+        assertEquals(1, Objects.requireNonNull(userService.getAll().stream().findFirst()
+                        .orElse(null)).getId(), "Пользователь должен быть 1");
 
         //Создаем объект пользователя с правильными параметрами для обновления.
         User newUser = new User();
@@ -58,12 +58,12 @@ public class UserServiceTest {
         userService.update(newUser);
 
         //Проверяем что пользователь по прежнему 1.
-        assertEquals(1, Objects.requireNonNull(userService.getAll().stream().findFirst().
-                orElse(null)).getId(), "Пользователь должен быть 1");
+        assertEquals(1, Objects.requireNonNull(userService.getAll().stream().findFirst()
+                        .orElse(null)).getId(), "Пользователь должен быть 1");
 
         //Проверяем, что пользователь обновлен.
-        assertEquals(newUser, Objects.requireNonNull(userService.getAll().stream().findFirst().
-                orElse(null)), "Пользователи не равны");
+        assertEquals(newUser, Objects.requireNonNull(userService.getAll().stream().findFirst()
+                        .orElse(null)), "Пользователи не равны");
     } //Проверяем корректность обновления пользователя с правильными параметрами.
 
     @Test
@@ -74,8 +74,8 @@ public class UserServiceTest {
 
         //Проверяем, что пользователь создан
         assertEquals(1, userService.getAll().size(), "Пользователь должен быть 1");
-        assertEquals(user.getName(), Objects.requireNonNull(userService.getAll().stream().findFirst().
-                        orElse(null)).getLogin(),
+        assertEquals(user.getName(), Objects.requireNonNull(userService.getAll().stream().findFirst()
+                                .orElse(null)).getLogin(),
                 "Имя пользователя не равно логину.");
     } //Проверяем корректность работы валидации на название фильма
 

@@ -43,8 +43,8 @@ public class FilmServiceTest {
     public void shouldReturnPositiveWhenUpdateFilmIsCorrect() {
         //Добавляем фильм
         filmService.create(film);
-        assertEquals(1, Objects.requireNonNull(filmService.getAll().stream().findFirst().orElse(null)).
-                getId());
+        assertEquals(1, Objects.requireNonNull(filmService.getAll().stream().findFirst().orElse(null))
+                        .getId());
 
         //Создаем объект фильма для обновления.
         Film filmNew = new Film();
@@ -58,8 +58,8 @@ public class FilmServiceTest {
         filmService.update(filmNew);
 
         //Проверяем что фильм по прежнему 1.
-        assertEquals(1, Objects.requireNonNull(filmService.getAll().stream().findFirst().orElse(null)).
-                getId());
+        assertEquals(1, Objects.requireNonNull(filmService.getAll().stream().findFirst().orElse(null))
+                        .getId());
 
         //Проверяем, что фильм обновлен.
         assertEquals(filmNew, filmService.getAll().stream().findFirst().orElse(null),
