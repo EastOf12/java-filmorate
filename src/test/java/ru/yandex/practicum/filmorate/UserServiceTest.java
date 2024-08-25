@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.service.UserService;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,15 +34,17 @@ public class UserServiceTest {
         userService.create(user);
 
         //Проверяем, что пользователь с правильными параметрыми успешно добавлен.
-        assertEquals(1, userService.getUsers().size(), "Должен быть 1 пользователь");
-        assertEquals(user, userService.getUsers().get((long) 1), "Пользователи должны быть равны");
+        assertEquals(1, userService.getAll().size(), "Пользователь не создан");
+        assertEquals(user, userService.getAll().stream().findFirst().orElse(null), "Пользователи не " +
+                "равны");
     } //Проверяем корректность добавления пользователя с правильными параметрами.
 
     @Test
     public void shouldReturnPositiveWhenUpdateUserIsCorrect() {
         //Добавляем пользователя
         userService.create(user);
-        assertEquals(1, userService.getUsers().get((long) 1).getId());
+        assertEquals(1, Objects.requireNonNull(userService.getAll().stream().findFirst().
+                orElse(null)).getId(), "Пользователь должен быть 1");
 
         //Создаем объект пользователя с правильными параметрами для обновления.
         User newUser = new User();
@@ -55,10 +58,12 @@ public class UserServiceTest {
         userService.update(newUser);
 
         //Проверяем что пользователь по прежнему 1.
-        assertEquals(1, userService.getUsers().get((long) 1).getId());
+        assertEquals(1, Objects.requireNonNull(userService.getAll().stream().findFirst().
+                orElse(null)).getId(), "Пользователь должен быть 1");
 
         //Проверяем, что пользователь обновлен.
-        assertEquals(newUser, userService.getUsers().get((long) 1), "Пользователи должны быть одинаковыми.");
+        assertEquals(newUser, Objects.requireNonNull(userService.getAll().stream().findFirst().
+                orElse(null)), "Пользователи не равны");
     } //Проверяем корректность обновления пользователя с правильными параметрами.
 
     @Test
@@ -68,9 +73,10 @@ public class UserServiceTest {
         userService.create(user);
 
         //Проверяем, что пользователь создан
-        assertEquals(1, userService.getUsers().size(), "Должен быть 1 пользователь.");
-        assertEquals(user.getName(), userService.getUsers().get((long) 1).getLogin(),
-                "Имя пользователя должно быть равно логину.");
+        assertEquals(1, userService.getAll().size(), "Пользователь должен быть 1");
+        assertEquals(user.getName(), Objects.requireNonNull(userService.getAll().stream().findFirst().
+                        orElse(null)).getLogin(),
+                "Имя пользователя не равно логину.");
     } //Проверяем корректность работы валидации на название фильма
 
     @Test
@@ -78,13 +84,13 @@ public class UserServiceTest {
         //Делаем email пользователя некорректным и проверяем валидацию.
         user.setEmail("");
         assertThrows(ValidationException.class, () -> userService.create(user),
-                "Должно быть выброшено исключение ValidationException");
+                "Не выброшено исключение ValidationException");
 
         user.setEmail("12313gmail");
         assertThrows(ValidationException.class, () -> userService.create(user),
-                "Должно быть выброшено исключение ValidationException");
+                "Не выброшено исключение ValidationException");
 
-        assertEquals(0, userService.getUsers().size(), "Не должно быть добавленных пользователей.");
+        assertEquals(0, userService.getAll().size(), "Не должно быть добавленных пользователей.");
     } //Проверяем корректность работы валидации на email от пользователя
 
     @Test
@@ -92,12 +98,12 @@ public class UserServiceTest {
         //Делаем логин пользователя некорректным и проверяем валидацию.
         user.setLogin("");
         assertThrows(ValidationException.class, () -> userService.create(user),
-                "Должно быть выброшено исключение ValidationException");
+                "Не выброшено исключение ValidationException");
 
         user.setLogin("my login");
         assertThrows(ValidationException.class, () -> userService.create(user),
-                "Должно быть выброшено исключение ValidationException");
-        assertEquals(0, userService.getUsers().size(), "Не должно быть добавленных пользователей.");
+                "Не выброшено исключение ValidationException");
+        assertEquals(0, userService.getAll().size(), "Не должно быть добавленных пользователей.");
     } //Проверяем корректность работы валидации на логин пользователя
 
     @Test
@@ -105,9 +111,9 @@ public class UserServiceTest {
         //Делаем дату рождения некорректной и проверяем валидацию.
         user.setBirthday(LocalDate.now().plusDays(1));
         assertThrows(ValidationException.class, () -> userService.create(user),
-                "Должно быть выброшено исключение ValidationException");
+                "Не выброшено исключение ValidationException");
 
-        assertEquals(0, userService.getUsers().size(), "Не должно быть добавленных пользователей.");
+        assertEquals(0, userService.getAll().size(), "Не должно быть добавленных пользователей.");
     } //Проверяем корректность работы валидации на длительность фильма
 
     @Test

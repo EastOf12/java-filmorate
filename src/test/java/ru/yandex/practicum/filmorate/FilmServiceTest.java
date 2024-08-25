@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.service.FilmService;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,8 +34,8 @@ public class FilmServiceTest {
         filmService.create(film);
 
         //Проверяем, что фильм с правильными параметрыми успешно добавлен.
-        assertEquals(1, filmService.getFilms().size(), "Должен быть 1 фильм");
-        assertEquals(film, filmService.getFilms().get((long) 1),
+        assertEquals(1, filmService.getAll().size(), "Должен быть 1 фильм");
+        assertEquals(film, filmService.getAll().stream().findFirst().orElse(null),
                 "Фильмы должны быть равны");
     } //Проверяем корректность добавления фильма с правильными параметрами.
 
@@ -42,7 +43,8 @@ public class FilmServiceTest {
     public void shouldReturnPositiveWhenUpdateFilmIsCorrect() {
         //Добавляем фильм
         filmService.create(film);
-        assertEquals(1, filmService.getFilms().get((long) 1).getId());
+        assertEquals(1, Objects.requireNonNull(filmService.getAll().stream().findFirst().orElse(null)).
+                getId());
 
         //Создаем объект фильма для обновления.
         Film filmNew = new Film();
@@ -56,10 +58,12 @@ public class FilmServiceTest {
         filmService.update(filmNew);
 
         //Проверяем что фильм по прежнему 1.
-        assertEquals(1, filmService.getFilms().get((long) 1).getId());
+        assertEquals(1, Objects.requireNonNull(filmService.getAll().stream().findFirst().orElse(null)).
+                getId());
 
         //Проверяем, что фильм обновлен.
-        assertEquals(filmNew, filmService.getFilms().get((long) 1), "Фильмы должны быть одинаковыми.");
+        assertEquals(filmNew, filmService.getAll().stream().findFirst().orElse(null),
+                "Фильмы должны быть одинаковыми.");
     } //Проверяем корректность обновления фильма с правильными параметрами.
 
     @Test
@@ -67,13 +71,13 @@ public class FilmServiceTest {
         //Делаем название фильма некорректным и проверяем валидацию.
         film.setName("");
         assertThrows(ValidationException.class, () -> filmService.create(film),
-                "Должно быть выброшено исключение ValidationException");
+                "Не выброшено исключение ValidationException");
         film.setName(null);
         assertThrows(ValidationException.class, () -> filmService.create(film),
-                "Должно быть выброшено исключение ValidationException");
+                "Не выброшено исключение ValidationException");
 
         //Проверяем, что фильм по прежнему не создан
-        assertEquals(0, filmService.getFilms().size(), "Не должно быть добавленных фильмов.");
+        assertEquals(0, filmService.getAll().size(), "Фильм не должен быть создан");
     } //Проверяем корректность работы валидации на название фильма
 
     @Test
@@ -81,14 +85,14 @@ public class FilmServiceTest {
         //Делаем описание фильма некорректным и проверяем валидацию.
         film.setDescription(stringGenerate(201));
         assertThrows(ValidationException.class, () -> filmService.create(film),
-                "Должно быть выброшено исключение ValidationException");
+                "Не выброшено исключение ValidationException");
 
-        assertEquals(0, filmService.getFilms().size(), "Не должно быть добавленных фильмов.");
+        assertEquals(0, filmService.getAll().size(), "Фильм не должен быть создан");
 
         //Создаем фильм с максимально возможным количеством символов в описании.
         film.setDescription(stringGenerate(200));
         filmService.create(film);
-        assertEquals(1, filmService.getFilms().size(), "Должен быть 1 добавленный фильм");
+        assertEquals(1, filmService.getAll().size(), "Фильм должен быть создан");
     } //Проверяем корректность работы валидации на описание фильма
 
     @Test
@@ -97,13 +101,13 @@ public class FilmServiceTest {
         film.setReleaseDate(LocalDate.from(LocalDate.of(1895, 12, 27)));
 
         assertThrows(ValidationException.class, () -> filmService.create(film),
-                "Должно быть выброшено исключение ValidationException");
-        assertEquals(0, filmService.getFilms().size(), "Не должно быть добавленных фильмов.");
+                "Не выброшено исключение ValidationException");
+        assertEquals(0, filmService.getAll().size(), "Фильм не должен быть создан");
 
         //Проверяем корректность самой ранней даты выхода фильма
         film.setReleaseDate(LocalDate.from(LocalDate.of(1895, 12, 28)));
         filmService.create(film);
-        assertEquals(1, filmService.getFilms().size(), "Должен быть 1 добавленный фильм");
+        assertEquals(1, filmService.getAll().size(), "Фильм должен быть создан");
     } //Проверяем корректность работы валидации на дату релиза фильма
 
     @Test
@@ -111,18 +115,18 @@ public class FilmServiceTest {
         //Делаем длительность фильма некорректной и проверяем валидацию.
         film.setDuration(-1);
         assertThrows(ValidationException.class, () -> filmService.create(film),
-                "Должно быть выброшено исключение ValidationException");
+                "Не выброшено исключение ValidationException");
 
         //Проверяем корректность с минимальной длительностью фильма
         film.setDuration(0);
         filmService.create(film);
-        assertEquals(1, filmService.getFilms().size(), "Должен быть 1 добавленный фильм");
+        assertEquals(1, filmService.getAll().size(), "Фильм должен быть создан");
     } //Проверяем корректность работы валидации на длительность фильма
 
     @Test
     public void shouldReturnPositiveWhenGetAllIsCorrect() {
         //Проверяем что фильмы еще не добавлялись.
-        assertEquals(0, filmService.getAll().size(), "Не должно быть фильмов.");
+        assertEquals(0, filmService.getAll().size(), "Не должно быть фильмов");
 
         //Добавляем фильм
         filmService.create(film);

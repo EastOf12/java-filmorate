@@ -7,11 +7,11 @@ import java.time.LocalDate;
 
 @Data
 public class Film {
-    Long id;
-    String name;
-    String description;
-    int duration;
+    private Long id;
+    private String name;
+    private String description;
+    private int duration;
 
     @JsonFormat(pattern = "yyyy-MM-dd")
-    LocalDate releaseDate;
+    private LocalDate releaseDate;
 }

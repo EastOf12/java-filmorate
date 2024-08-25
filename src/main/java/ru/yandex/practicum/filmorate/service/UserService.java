@@ -1,8 +1,6 @@
 package ru.yandex.practicum.filmorate.service;
 
-import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
 import ru.yandex.practicum.filmorate.exception.ConditionsNotMetException;
@@ -15,25 +13,23 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-@Getter
 @Service
+@Slf4j
 public class UserService {
-    private static final Logger log = LoggerFactory.getLogger(FilmService.class);
-
     private final Map<Long, User> users = new HashMap<>();
 
     public User create(@RequestBody User user) {
         log.trace("Получен запрос на добавление нового пользователя");
 
         //Проходим валидацию полей.
-        passValidation(user);
+        passValidationCreate(user);
         log.debug("Валидация пройдена.");
 
 
         //Создаем пользователя в памяти приложения
         user.setId(getNextId());
         users.put(user.getId(), user);
-        log.info("Добавлен новый пользователь " + user.getId());
+        log.info("Добавлен новый пользователь {}", user.getId());
         return user;
     }
 
@@ -47,17 +43,28 @@ public class UserService {
         }
 
         if (!users.containsKey(user.getId())) {
-            log.warn("Валидация не пройдена. Пользователь с id = " + user.getId() + " не найден");
+            log.warn("Валидация не пройдена. Пользователь с id = {} не найден", user.getId());
             throw new NotFoundException("Пользователь с id = " + user.getId() + " не найден");
         }
 
-        //Проходим валидацию полей.
-        passValidation(user);
-        log.debug("Валидация пройдена.");
-
         //Обновляем информацию по пользователю в памяти приложения
-        users.put(user.getId(), user);
-        log.info("Обновлен пользователь " + user.getId());
+        if (user.getName() != null && !user.getName().isEmpty()) {
+            users.get(user.getId()).setName(user.getName());
+        }
+
+        if (user.getEmail() != null && !user.getEmail().isEmpty() && user.getEmail().contains("@")) {
+            users.get(user.getId()).setEmail(user.getEmail());
+        }
+
+        if (user.getLogin() != null && !user.getLogin().isEmpty() && !user.getLogin().contains(" ")) {
+            users.get(user.getId()).setLogin(user.getLogin());
+        }
+
+        if (user.getBirthday() != null && user.getBirthday().isAfter(LocalDate.now())) {
+            users.get(user.getId()).setBirthday(user.getBirthday());
+        }
+
+        log.info("Обновлен пользователь {}", user.getId());
         return user;
     }
 
@@ -75,17 +82,17 @@ public class UserService {
         return ++currentMaxId;
     }
 
-    private void passValidation(User user) {
+    private void passValidationCreate(User user) {
         //Проверяем корректность заполнения полей.
-        if (user.getEmail().isEmpty() || !user.getEmail().contains("@")) {
-            log.warn("Валидация не пройдена. Некорректная почта " + user.getEmail());
+        if (user.getEmail() == null || user.getEmail().isEmpty() || !user.getEmail().contains("@")) {
+            log.warn("Валидация не пройдена. Некорректная почта");
             throw new ValidationException("Электронная почта не может быть пустой и должна содержать символ @");
         } else if (user.getLogin() == null || user.getLogin().isEmpty() || user.getLogin().contains(" ")) {
-            log.warn("Валидация не пройдена. Некорректный логин " + user.getLogin());
-            throw new ValidationException("Логин не может быть пустым и содержать пробелы");
-        } else if (user.getBirthday().isAfter(LocalDate.now())) {
-            log.warn("Валидация не пройдена. Некорректная дата рождеия " + user.getBirthday());
-            throw new ValidationException("Дата рождения не может быть в будущем");
+            log.warn("Валидация не пройдена. Некорректный логин {}", user.getLogin());
+            throw new ValidationException("Логин не может быть пустым или содержать пробелы");
+        } else if (user.getBirthday() == null || user.getBirthday().isAfter(LocalDate.now())) {
+            log.warn("Валидация не пройдена. Некорректная дата рождения {}", user.getBirthday());
+            throw new ValidationException("Некорректная дата рождения");
         }
 
         //Перезаписываем имя пользователя на его логин, если оно не было получено.
