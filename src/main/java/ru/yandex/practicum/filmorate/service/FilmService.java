@@ -16,7 +16,7 @@ import java.util.Map;
 @Slf4j
 public class FilmService {
     private final Map<Long, Film> films = new HashMap<>();
-    private final LocalDate DATE = LocalDate.of(1895, 12, 28);
+    private final LocalDate minReleaseDate = LocalDate.of(1895, 12, 28);
 
     public Film create(Film film) {
         log.trace("Получен запрос на добавление нового фильма");
@@ -55,7 +55,7 @@ public class FilmService {
             films.get(film.getId()).setDescription(film.getDescription());
         }
 
-        if (film.getReleaseDate() != null && !film.getReleaseDate().isBefore(DATE)) {
+        if (film.getReleaseDate() != null && !film.getReleaseDate().isBefore(minReleaseDate)) {
             films.get(film.getId()).setReleaseDate(film.getReleaseDate());
         }
 
@@ -87,10 +87,10 @@ public class FilmService {
         } else if (film.getReleaseDate() == null) {
             log.warn("Валидация не пройдена. Дата в запросе = null");
             throw new ValidationException("Дата в запросе = null");
-        } else if (film.getReleaseDate().isBefore(DATE)) {
+        } else if (film.getReleaseDate().isBefore(minReleaseDate)) {
             log.warn("Валидация не пройдена. Дата в запросе {}",
                     film.getReleaseDate());
-            throw new ValidationException("Дата релиза — не раньше " + DATE);
+            throw new ValidationException("Дата релиза — не раньше " + minReleaseDate);
         } else if (film.getDuration() < 0) {
             log.warn("Валидация не пройдена. Продолжительность фильма в запросе {}",
                     film.getDuration());
