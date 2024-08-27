@@ -82,7 +82,11 @@ public class UserServiceTest {
     @Test
     public void shouldReturnPositiveWhenMailValidationIsCorrect() {
         //Делаем email пользователя некорректным и проверяем валидацию.
-        user.setEmail("");
+        user.setEmail(null);
+        assertThrows(ValidationException.class, () -> userService.create(user),
+                "Не выброшено исключение ValidationException");
+
+        user.setEmail(" ");
         assertThrows(ValidationException.class, () -> userService.create(user),
                 "Не выброшено исключение ValidationException");
 
@@ -96,7 +100,11 @@ public class UserServiceTest {
     @Test
     public void shouldReturnPositiveWhenLoginValidationIsCorrect() {
         //Делаем логин пользователя некорректным и проверяем валидацию.
-        user.setLogin("");
+        user.setLogin(null);
+        assertThrows(ValidationException.class, () -> userService.create(user),
+                "Не выброшено исключение ValidationException");
+
+        user.setLogin(" ");
         assertThrows(ValidationException.class, () -> userService.create(user),
                 "Не выброшено исключение ValidationException");
 
@@ -109,6 +117,10 @@ public class UserServiceTest {
     @Test
     public void shouldReturnPositiveWhenBirthdayValidationIsCorrect() {
         //Делаем дату рождения некорректной и проверяем валидацию.
+        user.setBirthday(null);
+        assertThrows(ValidationException.class, () -> userService.create(user),
+                "Не выброшено исключение ValidationException");
+
         user.setBirthday(LocalDate.now().plusDays(1));
         assertThrows(ValidationException.class, () -> userService.create(user),
                 "Не выброшено исключение ValidationException");

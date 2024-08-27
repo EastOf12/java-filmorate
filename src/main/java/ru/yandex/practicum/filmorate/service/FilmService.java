@@ -32,39 +32,43 @@ public class FilmService {
         return film;
     }
 
-    public Film update(Film film) {
+    public Film update(Film updateFilm) {
         log.trace("Получен запрос на обновление информации по фильму");
 
         //Проверяем корректность переданного ID
-        if (film.getId() == null) {
+        if (updateFilm.getId() == null) {
             log.warn("Валидация не пройдена. Id должен быть указан");
             throw new ConditionsNotMetException("Id должен быть указан");
         }
 
-        if (!films.containsKey(film.getId())) {
-            log.warn("Валидация не пройдена. Фильм с id = {} не найден", film.getId());
-            throw new NotFoundException("Фильм с id = " + film.getId() + " не найден");
+        //Достаем фильм по его id
+        Film film = films.get(updateFilm.getId());
+
+        //Обновляем информацию на основне новых полей.
+        if(film == null) {
+            log.warn("Валидация не пройдена. Фильм с id = {} не найден", updateFilm.getId());
+            throw new NotFoundException("Фильм с id = " + updateFilm.getId() + " не найден");
+        } else {
+            if (updateFilm.getName() != null && !updateFilm.getName().isBlank()) {
+                film.setName(updateFilm.getName());
+            }
+
+            if (updateFilm.getDescription() != null && !updateFilm.getDescription().isBlank() && updateFilm
+                    .getDescription().length() <= 200) {
+                film.setDescription(updateFilm.getDescription());
+            }
+
+            if (updateFilm.getReleaseDate() != null && !updateFilm.getReleaseDate().isBefore(MIN_RELEASE_DATE)) {
+                film.setReleaseDate(updateFilm.getReleaseDate());
+            }
+
+            if (updateFilm.getDuration() < 0) {
+                film.setDuration(updateFilm.getDuration());
+            }
         }
 
-        //Обновляем информацию по фильму в памяти приложения
-        if (film.getName() != null && !film.getName().isEmpty()) {
-            films.get(film.getId()).setName(film.getName());
-        }
-
-        if (film.getDescription() != null && !film.getDescription().isEmpty() && film.getDescription().length() <= 200) {
-            films.get(film.getId()).setDescription(film.getDescription());
-        }
-
-        if (film.getReleaseDate() != null && !film.getReleaseDate().isBefore(MIN_RELEASE_DATE)) {
-            films.get(film.getId()).setReleaseDate(film.getReleaseDate());
-        }
-
-        if (film.getDuration() < 0) {
-            films.get(film.getId()).setDuration(film.getDuration());
-        }
-
-        log.info("Обновлена информация по фильму {}", film.getId());
-        return film;
+        log.info("Обновлена информация по фильму {}", updateFilm.getId());
+        return updateFilm;
     }
 
     public Collection<Film> getAll() {
@@ -74,10 +78,10 @@ public class FilmService {
 
     private void passValidationCreate(Film film) {
         //Проверяем корректность заполнения полей.
-        if (film.getName() == null || film.getName().isEmpty()) {
+        if (film.getName() == null || film.getName().isBlank()) {
             log.warn("Валидация не пройдена. Не было передано название фильма.");
             throw new ValidationException("Название не может быть пустым.");
-        } else if (film.getDescription() == null || film.getDescription().isEmpty()) {
+        } else if (film.getDescription() == null || film.getDescription().isBlank()) {
             log.warn("Валидация не пройдена. Описание запроса не может быть пустым");
             throw new ValidationException("Описание запроса не может быть пустым");
         } else if (film.getDescription().length() > 200) {
@@ -91,7 +95,7 @@ public class FilmService {
             log.warn("Валидация не пройдена. Дата в запросе {}",
                     film.getReleaseDate());
             throw new ValidationException("Дата релиза — не раньше " + MIN_RELEASE_DATE);
-        } else if (film.getDuration() < 0) {
+        } else if (film.getDuration() < 1) {
             log.warn("Валидация не пройдена. Продолжительность фильма в запросе {}",
                     film.getDuration());
             throw new ValidationException("Продолжительность фильма должна быть положительным числом.");

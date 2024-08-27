@@ -33,39 +33,40 @@ public class UserService {
         return user;
     }
 
-    public User update(@RequestBody User user) {
+    public User update(@RequestBody User updateUser) {
         log.trace("Получен запрос на обновление пользователя");
 
         //Проверяем корректность переданного ID
-        if (user.getId() == null) {
+        if (updateUser.getId() == null) {
             log.warn("Валидация не пройдена. Id должен быть указан");
             throw new ConditionsNotMetException("Id должен быть указан");
         }
 
-        if (!users.containsKey(user.getId())) {
-            log.warn("Валидация не пройдена. Пользователь с id = {} не найден", user.getId());
-            throw new NotFoundException("Пользователь с id = " + user.getId() + " не найден");
+        User user = users.get(updateUser.getId());
+
+        if(user == null) {
+            log.warn("Валидация не пройдена. Пользователь с id = {} не найден", updateUser.getId());
+            throw new NotFoundException("Пользователь с id = " + updateUser.getId() + " не найден");
+        } else {
+            if (updateUser.getName() != null && !updateUser.getName().isBlank()) {
+                user.setName(updateUser.getName());
+            }
+
+            if (updateUser.getEmail() != null && !updateUser.getEmail().isBlank() && updateUser.getEmail().contains("@")) {
+                user.setEmail(updateUser.getEmail());
+            }
+
+            if (updateUser.getLogin() != null && !updateUser.getLogin().isBlank() && !updateUser.getLogin().contains(" ")) {
+                user.setLogin(updateUser.getLogin());
+            }
+
+            if (updateUser.getBirthday() != null && updateUser.getBirthday().isAfter(LocalDate.now())) {
+                user.setBirthday(updateUser.getBirthday());
+            }
         }
 
-        //Обновляем информацию по пользователю в памяти приложения
-        if (user.getName() != null && !user.getName().isEmpty()) {
-            users.get(user.getId()).setName(user.getName());
-        }
-
-        if (user.getEmail() != null && !user.getEmail().isEmpty() && user.getEmail().contains("@")) {
-            users.get(user.getId()).setEmail(user.getEmail());
-        }
-
-        if (user.getLogin() != null && !user.getLogin().isEmpty() && !user.getLogin().contains(" ")) {
-            users.get(user.getId()).setLogin(user.getLogin());
-        }
-
-        if (user.getBirthday() != null && user.getBirthday().isAfter(LocalDate.now())) {
-            users.get(user.getId()).setBirthday(user.getBirthday());
-        }
-
-        log.info("Обновлен пользователь {}", user.getId());
-        return user;
+        log.info("Обновлен пользователь {}", updateUser.getId());
+        return updateUser;
     }
 
     public Collection<User> getAll() {
@@ -84,10 +85,10 @@ public class UserService {
 
     private void passValidationCreate(User user) {
         //Проверяем корректность заполнения полей.
-        if (user.getEmail() == null || user.getEmail().isEmpty() || !user.getEmail().contains("@")) {
+        if (user.getEmail() == null || user.getEmail().isBlank() || !user.getEmail().contains("@")) {
             log.warn("Валидация не пройдена. Некорректная почта");
             throw new ValidationException("Электронная почта не может быть пустой и должна содержать символ @");
-        } else if (user.getLogin() == null || user.getLogin().isEmpty() || user.getLogin().contains(" ")) {
+        } else if (user.getLogin() == null || user.getLogin().isBlank() || user.getLogin().contains(" ")) {
             log.warn("Валидация не пройдена. Некорректный логин {}", user.getLogin());
             throw new ValidationException("Логин не может быть пустым или содержать пробелы");
         } else if (user.getBirthday() == null || user.getBirthday().isAfter(LocalDate.now())) {
@@ -96,7 +97,7 @@ public class UserService {
         }
 
         //Перезаписываем имя пользователя на его логин, если оно не было получено.
-        if (user.getName() == null || user.getName().isEmpty()) {
+        if (user.getName() == null || user.getName().isBlank()) {
             log.trace("Имя пользователя не было получено, перезаписали на логин.");
             user.setName(user.getLogin());
         }
