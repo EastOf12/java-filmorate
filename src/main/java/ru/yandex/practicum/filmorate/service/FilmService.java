@@ -45,7 +45,7 @@ public class FilmService {
         Film film = films.get(updateFilm.getId());
 
         //Обновляем информацию на основне новых полей.
-        if(film == null) {
+        if (film == null) {
             log.warn("Валидация не пройдена. Фильм с id = {} не найден", updateFilm.getId());
             throw new NotFoundException("Фильм с id = " + updateFilm.getId() + " не найден");
         } else {

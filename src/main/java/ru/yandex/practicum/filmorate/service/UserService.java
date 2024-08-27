@@ -44,7 +44,7 @@ public class UserService {
 
         User user = users.get(updateUser.getId());
 
-        if(user == null) {
+        if (user == null) {
             log.warn("Валидация не пройдена. Пользователь с id = {} не найден", updateUser.getId());
             throw new NotFoundException("Пользователь с id = " + updateUser.getId() + " не найден");
         } else {
