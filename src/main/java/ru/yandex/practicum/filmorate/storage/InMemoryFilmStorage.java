@@ -80,11 +80,6 @@ public class InMemoryFilmStorage implements FilmStorage {
         return films.values();
     }
 
-    @Override
-    public boolean checkFilmAvailability(Long filmId) {
-        return !films.containsKey(filmId);
-    }
-
     public Film getFilm(Long filmID) {
         return films.get(filmID);
     }

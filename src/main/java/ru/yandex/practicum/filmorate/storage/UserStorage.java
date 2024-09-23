@@ -11,7 +11,5 @@ public interface UserStorage {
 
     Collection<User> getAll();
 
-    boolean checkUserAvailability(Long userId);
-
     User getUser(Long userId);
 }

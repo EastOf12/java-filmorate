@@ -12,7 +12,4 @@ public interface FilmStorage {
     Collection<Film> getAll();
 
     Film getFilm(Long filmId);
-
-    boolean checkFilmAvailability(Long filmId);
-
 }

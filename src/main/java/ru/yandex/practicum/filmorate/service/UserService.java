@@ -7,16 +7,18 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @Slf4j
 public class UserService {
+
+    private final UserStorage userStorage;
+
     @Autowired
-    private UserStorage userStorage;
+    public UserService(UserStorage userStorage) {
+        this.userStorage = userStorage;
+    }
 
     public void addFriend(Long userId, Long friendId) {
         //Проверяем, что такие пользователи существуют и указаны корректно
@@ -24,18 +26,21 @@ public class UserService {
             log.warn("Пользователь с id {} хочет добавить в друзья сам себя", userId);
             throw new NotFoundException("Нельзя добавить в друзья самого себя");
         }
-        if (userStorage.checkUserAvailability(userId)) {
+
+        User user = userStorage.getUser(userId);
+        User otherUser = userStorage.getUser(friendId);
+        if (user == null) {
             log.warn("Нет пользователя с id {}", userId);
             throw new NotFoundException("Нет пользователя с id " + userId);
         }
 
-        if (userStorage.checkUserAvailability(friendId)) {
+        if (otherUser == null) {
             log.warn("Нет пользователя с id {}", friendId);
             throw new NotFoundException("Нет пользователя с id " + friendId);
         }
 
         //Проверяем, что пользователь не был добавлен в друзья ранее
-        Set<Long> friends = userStorage.getUser(userId).getFriends();
+        Set<Long> friends = user.getFriends();
         if (friends.contains(friendId)) {
             log.warn("Пользователь {} уже в друзьях пользователя {}", friendId, userId);
             throw new NotFoundException("Пользователи уже дружат" + friendId);
@@ -43,28 +48,32 @@ public class UserService {
 
         //Добавлям пользователей в друзья
         friends.add(friendId);
-        userStorage.getUser(friendId).getFriends().add(userId);
+        otherUser.getFriends().add(userId);
 
         log.info("Пользователь {} добавил в друзья пользователя {}", userId, friendId);
     } //Добавить пользотвателя в друзья
 
     public void removeFriend(Long userId, Long friendId) {
         //Проверяем, что такие пользователи существуют
-        if (userStorage.checkUserAvailability(userId)) {
+        User user = userStorage.getUser(userId);
+        User otherUser = userStorage.getUser(friendId);
+
+        if (user == null) {
             log.warn("Нет пользователя с id {}", userId);
             throw new NotFoundException("Нет пользователя с id " + userId);
         }
 
-        if (userStorage.checkUserAvailability(friendId)) {
+        if (otherUser == null) {
             log.warn("Нет пользователя с id {}", friendId);
             throw new NotFoundException("Нет пользователя с id " + friendId);
         }
 
         //Проверяем, что пользователи дружат
-        Set<Long> friends = userStorage.getUser(userId).getFriends();
-        if (friends.contains(friendId) || userStorage.getUser(friendId).getFriends().contains(userId)) {
-            friends.remove(friendId);
-            userStorage.getUser(friendId).getFriends().remove(userId);
+        Set<Long> userFriends = user.getFriends();
+        Set<Long> otherUserFriends = otherUser.getFriends();
+        if (userFriends.contains(friendId) || otherUserFriends.contains(userId)) {
+            userFriends.remove(friendId);
+            otherUserFriends.remove(userId);
             log.info("Пользователь {} удалил из друзей пользователя {}", userId, friendId);
         } else {
             log.warn("Пользователи {} и {} не дружат ", friendId, userId);
@@ -73,12 +82,14 @@ public class UserService {
 
     public Collection<User> getAllUserFriends(Long userId) {
         //Проверяем, что такой пользователь существует
-        if (userStorage.checkUserAvailability(userId)) {
+        User user = userStorage.getUser(userId);
+
+        if (user == null) {
             log.warn("Нет пользователя с id {}", userId);
             throw new NotFoundException("Нет пользователя с id " + userId);
         }
 
-        Set<Long> friendsId = userStorage.getUser(userId).getFriends();
+        Set<Long> friendsId = user.getFriends();
         if (friendsId.isEmpty()) {
             log.info("У пользователя {} нет друзей", userId);
             return new ArrayList<>();
@@ -95,27 +106,31 @@ public class UserService {
 
     public Collection<User> getFriendsCommon(Long userId, Long otherUserId) {
         //Проверяем, что такие пользователи существуют.
-        if (userStorage.checkUserAvailability(userId)) {
+        User user = userStorage.getUser(userId);
+        User otherUser = userStorage.getUser(otherUserId);
+
+        if (user == null) {
             log.warn("Нет пользователя с id {}", userId);
             throw new NotFoundException("Нет пользователя с id " + userId);
         }
 
-        if (userStorage.checkUserAvailability(otherUserId)) {
+        if (otherUser == null) {
             log.warn("Нет пользователя с id {}", otherUserId);
             throw new NotFoundException("Нет пользователя с id " + otherUserId);
         }
 
         //Получаем id друзей пользователей
-        Set<Long> friendIdUser = userStorage.getUser(userId).getFriends();
-        Set<Long> friendIdOtherUser = userStorage.getUser(otherUserId).getFriends();
+        Set<Long> friendIdUser = user.getFriends();
+        Set<Long> friendIdOtherUser = otherUser.getFriends();
 
         //Получаем общих пользователей.
+        Set<Long> mutualFriendId = new HashSet<>(friendIdUser);
+        mutualFriendId.retainAll(friendIdOtherUser);
+
         List<User> mutualFriends = new ArrayList<>();
 
-        for (Long idUser : friendIdUser) {
-            if (friendIdOtherUser.contains(idUser)) {
-                mutualFriends.add(userStorage.getUser(idUser));
-            }
+        for (Long idUser : mutualFriendId) {
+            mutualFriends.add(userStorage.getUser(idUser));
         }
 
         return mutualFriends;

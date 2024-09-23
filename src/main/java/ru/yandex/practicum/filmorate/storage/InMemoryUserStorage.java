@@ -77,6 +77,7 @@ public class InMemoryUserStorage implements UserStorage {
         return users.values();
     }
 
+    @Override
     public User getUser(Long userID) {
         return users.get(userID);
     }
@@ -113,9 +114,4 @@ public class InMemoryUserStorage implements UserStorage {
             user.setName(user.getLogin());
         }
     }
-
-    @Override
-    public boolean checkUserAvailability(Long userId) {
-        return !users.containsKey(userId);
-    } //Проверяет, существует ли такой пользователь
 }

@@ -6,47 +6,51 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 
 @Service
 @Slf4j
 public class FilmService {
-    @Autowired
-    private FilmStorage filmStorage;
+
+    private final FilmStorage filmStorage;
+    private final UserStorage userStorage;
 
     @Autowired
-    private UserStorage userStorage;
+    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+        this.filmStorage = filmStorage;
+        this.userStorage = userStorage;
+    }
 
 
     public void addLike(Long filmId, Long userId) {
         Film film = filmStorage.getFilm(filmId);
 
         //Находим фильм по его айди
-        if (filmStorage.checkFilmAvailability(filmId)) {
+        if (film == null) {
             log.warn("Нет фильма с id {}", filmId);
             throw new NotFoundException("Нет фильма с id " + filmId);
         }
 
         //Находим пользователя с таким айди
-        if (userStorage.checkUserAvailability(userId)) {
+        User user = userStorage.getUser(userId);
+        if (user == null) {
             log.warn("Нет пользователя с id {}", userId);
             throw new NotFoundException("Нет пользователя с id " + userId);
         }
 
         //Добавляем лайк на фильм
-        if (film.getLikes().contains(userId)) {
-            log.warn("Лайк к фильму с id {} был добавлен ранее", film.getId());
+        Set<Long> likes = film.getLikes();
+        if (likes.contains(userId)) {
+            log.warn("Лайк к фильму с id {} был добавлен ранее", filmId);
             throw new ValidationException("Лайк был добавлен ранее");
         } else {
-            log.info("Поставили лайк фильму с id={}", film.getId());
-            film.getLikes().add(userId);
+            log.info("Поставили лайк фильму с id={}", filmId);
+            likes.add(userId);
         }
     } //Добавляет лайк
 
@@ -55,26 +59,27 @@ public class FilmService {
         Film film = filmStorage.getFilm(filmId);
 
         //Находим фильм по его айди
-        if (filmStorage.checkFilmAvailability(filmId)) {
+        if (film == null) {
             log.warn("Нет фильма с id {}", filmId);
             throw new NotFoundException("Нет фильма с id " + filmId);
         }
 
         //Находим пользователя с таким айди
-        if (userStorage.checkUserAvailability(userId)) {
+        User user = userStorage.getUser(userId);
+        if (user == null) {
             log.warn("Нет пользователя с id {}", userId);
             throw new NotFoundException("Нет пользователя с id " + userId);
         }
 
         //Удаляем лайк с фильма
-        if (film.getLikes().contains(userId)) {
-            log.warn("Удалили лайк с фильма {}", filmId);
-            film.getLikes().remove(userId);
-
-        } else {
+        Set<Long> likes = film.getLikes();
+        if (!likes.contains(userId)) {
             log.info("Пользователь {} не ставил лайк фильму id={}", userId, filmId);
             throw new ValidationException("Пользователь не ставил лайк фильму " + filmId);
         }
+
+        log.warn("Удалили лайк с фильма {}", filmId);
+        likes.remove(userId);
 
     } //Удаляет лайк
 

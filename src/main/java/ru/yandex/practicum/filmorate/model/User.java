@@ -2,7 +2,6 @@ package ru.yandex.practicum.filmorate.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
-import lombok.Getter;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -14,10 +13,8 @@ public class User {
     private String email;
     private String login;
     private String name;
+    private Set<Long> friends = new HashSet<>(); //Айди друзей пользователя
 
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate birthday;
-
-    @Getter
-    private Set<Long> friends = new HashSet<>(); //Айди друзей пользователя
 }
