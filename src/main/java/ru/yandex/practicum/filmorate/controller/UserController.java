@@ -13,23 +13,22 @@ import java.util.Collection;
 @RestController
 @RequestMapping("/users")
 public class UserController {
-    private final UserStorage userStorage;
     private final UserService userService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public User create(@RequestBody User user) {
-        return userStorage.create(user);
+        return userService.create(user);
     } //Создать пользователя
 
     @PutMapping
     public User update(@RequestBody User newUser) {
-        return userStorage.update(newUser);
+        return userService.update(newUser);
     } //Обновить пользователя
 
     @GetMapping
     public Collection<User> getAll() {
-        return userStorage.getAll();
+        return userService.getAll();
     } //Получить всех пользователей
 
 

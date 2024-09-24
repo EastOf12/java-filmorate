@@ -26,6 +26,18 @@ public class FilmService {
         this.userStorage = userStorage;
     }
 
+    public Film create(Film film) {
+        return filmStorage.create(film);
+    }
+
+    public Film update(Film updateFilm) {
+        return filmStorage.update(updateFilm);
+    }
+
+    public Collection<Film> getAll() {
+        return filmStorage.getAll();
+    }
+
 
     public void addLike(Long filmId, Long userId) {
         Film film = filmStorage.getFilm(filmId);

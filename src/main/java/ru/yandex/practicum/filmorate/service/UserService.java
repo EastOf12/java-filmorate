@@ -4,9 +4,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.UserStorage;
 
+import java.time.LocalDate;
 import java.util.*;
 
 @Service
@@ -18,6 +20,18 @@ public class UserService {
     @Autowired
     public UserService(UserStorage userStorage) {
         this.userStorage = userStorage;
+    }
+
+    public User create(User user) {
+        return userStorage.create(user);
+    }
+
+    public User update(User updateUser) {
+        return userStorage.update(updateUser);
+    }
+
+    public Collection<User> getAll() {
+        return userStorage.getAll();
     }
 
     public void addFriend(Long userId, Long friendId) {
