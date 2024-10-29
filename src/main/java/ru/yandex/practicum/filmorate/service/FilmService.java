@@ -1,114 +1,125 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.exception.ConditionsNotMetException;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.UserStorage;
 
-import java.time.LocalDate;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+
 
 @Service
 @Slf4j
 public class FilmService {
-    private final Map<Long, Film> films = new HashMap<>();
-    private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
+
+    private final FilmStorage filmStorage;
+    private final UserStorage userStorage;
+
+    @Autowired
+    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+        this.filmStorage = filmStorage;
+        this.userStorage = userStorage;
+    }
 
     public Film create(Film film) {
-        log.trace("Получен запрос на добавление нового фильма");
-
-        //Проходим валидацию полей.
-        passValidationCreate(film);
-        log.debug("Валидация пройдена.");
-
-        //Сохраняем новый фильм в памяти приложения
-        film.setId(getNextId());
-        films.put(film.getId(), film);
-        log.info("Добавлен новый фильм {}", film.getId());
-        return film;
+        return filmStorage.create(film);
     }
 
     public Film update(Film updateFilm) {
-        log.trace("Получен запрос на обновление информации по фильму");
-
-        //Проверяем корректность переданного ID
-        if (updateFilm.getId() == null) {
-            log.warn("Валидация не пройдена. Id должен быть указан");
-            throw new ConditionsNotMetException("Id должен быть указан");
-        }
-
-        //Достаем фильм по его id
-        Film film = films.get(updateFilm.getId());
-
-        //Обновляем информацию на основне новых полей.
-        if (film == null) {
-            log.warn("Валидация не пройдена. Фильм с id = {} не найден", updateFilm.getId());
-            throw new NotFoundException("Фильм с id = " + updateFilm.getId() + " не найден");
-        } else {
-            if (updateFilm.getName() != null && !updateFilm.getName().isBlank()) {
-                film.setName(updateFilm.getName());
-            }
-
-            if (updateFilm.getDescription() != null && !updateFilm.getDescription().isBlank() && updateFilm
-                    .getDescription().length() <= 200) {
-                film.setDescription(updateFilm.getDescription());
-            }
-
-            if (updateFilm.getReleaseDate() != null && !updateFilm.getReleaseDate().isBefore(MIN_RELEASE_DATE)) {
-                film.setReleaseDate(updateFilm.getReleaseDate());
-            }
-
-            if (updateFilm.getDuration() < 0) {
-                film.setDuration(updateFilm.getDuration());
-            }
-        }
-
-        log.info("Обновлена информация по фильму {}", updateFilm.getId());
-        return updateFilm;
+        return filmStorage.update(updateFilm);
     }
 
     public Collection<Film> getAll() {
-        log.info("Отправили информацию по все фильмам.");
-        return films.values();
+        return filmStorage.getAll();
     }
 
-    private void passValidationCreate(Film film) {
-        //Проверяем корректность заполнения полей.
-        if (film.getName() == null || film.getName().isBlank()) {
-            log.warn("Валидация не пройдена. Не было передано название фильма.");
-            throw new ValidationException("Название не может быть пустым.");
-        } else if (film.getDescription() == null || film.getDescription().isBlank()) {
-            log.warn("Валидация не пройдена. Описание запроса не может быть пустым");
-            throw new ValidationException("Описание запроса не может быть пустым");
-        } else if (film.getDescription().length() > 200) {
-            log.warn("Валидация не пройдена. Количество символов в описании запроса {}",
-                    film.getDescription().length());
-            throw new ValidationException("Максимальная длина описания — 200 символов.");
-        } else if (film.getReleaseDate() == null) {
-            log.warn("Валидация не пройдена. Дата в запросе = null");
-            throw new ValidationException("Дата в запросе = null");
-        } else if (film.getReleaseDate().isBefore(MIN_RELEASE_DATE)) {
-            log.warn("Валидация не пройдена. Дата в запросе {}",
-                    film.getReleaseDate());
-            throw new ValidationException("Дата релиза — не раньше " + MIN_RELEASE_DATE);
-        } else if (film.getDuration() < 1) {
-            log.warn("Валидация не пройдена. Продолжительность фильма в запросе {}",
-                    film.getDuration());
-            throw new ValidationException("Продолжительность фильма должна быть положительным числом.");
+
+    public void addLike(Long filmId, Long userId) {
+        Film film = filmStorage.getFilm(filmId);
+
+        //Находим фильм по его айди
+        if (film == null) {
+            log.warn("Нет фильма с id {}", filmId);
+            throw new NotFoundException("Нет фильма с id " + filmId);
         }
-    }
 
-    private long getNextId() {
-        long currentMaxId = films.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
-    }
+        //Находим пользователя с таким айди
+        User user = userStorage.getUser(userId);
+        if (user == null) {
+            log.warn("Нет пользователя с id {}", userId);
+            throw new NotFoundException("Нет пользователя с id " + userId);
+        }
 
+        //Добавляем лайк на фильм
+        Set<Long> likes = film.getLikes();
+        if (likes.contains(userId)) {
+            log.warn("Лайк к фильму с id {} был добавлен ранее", filmId);
+            throw new ValidationException("Лайк был добавлен ранее");
+        } else {
+            log.info("Поставили лайк фильму с id={}", filmId);
+            likes.add(userId);
+        }
+    } //Добавляет лайк
+
+    public void deleteLike(Long filmId, Long userId) {
+        //Находим фильм по его айди
+        Film film = filmStorage.getFilm(filmId);
+
+        //Находим фильм по его айди
+        if (film == null) {
+            log.warn("Нет фильма с id {}", filmId);
+            throw new NotFoundException("Нет фильма с id " + filmId);
+        }
+
+        //Находим пользователя с таким айди
+        User user = userStorage.getUser(userId);
+        if (user == null) {
+            log.warn("Нет пользователя с id {}", userId);
+            throw new NotFoundException("Нет пользователя с id " + userId);
+        }
+
+        //Удаляем лайк с фильма
+        Set<Long> likes = film.getLikes();
+        if (!likes.contains(userId)) {
+            log.info("Пользователь {} не ставил лайк фильму id={}", userId, filmId);
+            throw new ValidationException("Пользователь не ставил лайк фильму " + filmId);
+        }
+
+        log.warn("Удалили лайк с фильма {}", filmId);
+        likes.remove(userId);
+
+    } //Удаляет лайк
+
+    public Collection<Film> getPopularFilms(int count) {
+        //Получаем все доступные фильмы.
+        Collection<Film> films = filmStorage.getAll();
+
+        if (films == null) {
+            log.info("Фильмы не найдены");
+            return new ArrayList<>();
+        } else {
+            //Сортируем фильмы по количеству лайков
+            Comparator<Film> likesComparator = new Comparator<Film>() {
+                @Override
+                public int compare(Film film1, Film film2) {
+                    int likesCount1 = film1.getLikes().size();
+                    int likesCount2 = film2.getLikes().size();
+                    return Integer.compare(likesCount2, likesCount1);
+                }
+            };
+
+            // Сортировка коллекции films
+            List<Film> sortedFilms = new ArrayList<>(films);
+            sortedFilms.sort(likesComparator);
+
+            // Оставляем нужное количество фильмов
+            log.info("Вернули топ популярных фильмов в колличестве {}", count);
+            return sortedFilms.subList(0, Math.min(count, sortedFilms.size()));
+        }
+    } //Возвращает самые популярные фильмы
 }
