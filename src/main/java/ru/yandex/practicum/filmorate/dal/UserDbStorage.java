@@ -151,8 +151,8 @@ public class UserDbStorage extends BaseDbStorage<User> {
     }
 
     public void updateUser(User user) {
-        jdbcTemplate.update(UPDATE_QUERY, user.getEmail(), user.getLogin(), user.getName(), user.getBirthday()
-                , user.getId());
+        jdbcTemplate.update(UPDATE_QUERY, user.getEmail(), user.getLogin(), user.getName(), user.getBirthday(),
+                user.getId());
     }
 
     public User findById(Long id) {
@@ -181,7 +181,7 @@ public class UserDbStorage extends BaseDbStorage<User> {
         //Получаем всех друзей пользователя
         String usersId = convertCollectionToIdString(allUserFriendsId);
 
-        String FIND_BY_MANY_ID_QUERY = "SELECT * FROM users WHERE id IN (" + usersId + ")";
+        final String FIND_BY_MANY_ID_QUERY = "SELECT * FROM users WHERE id IN (" + usersId + ")";
         List<User> users = findAll(FIND_BY_MANY_ID_QUERY);
 
         //Получаем таблицу друзей каждого юзера
