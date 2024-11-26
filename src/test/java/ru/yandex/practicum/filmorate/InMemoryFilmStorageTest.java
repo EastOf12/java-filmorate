@@ -33,8 +33,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({FilmRowMapper.class, FilmDbStorage.class, InMemoryFilmStorage.class, UserDbStorage.class
-        , UserRowMapper.class, UserFriendDbStorage.class, LikesDbStorage.class, InMemoryUserStorage.class})
+@Import({FilmRowMapper.class, FilmDbStorage.class, InMemoryFilmStorage.class, UserDbStorage.class,
+        UserRowMapper.class, UserFriendDbStorage.class, LikesDbStorage.class, InMemoryUserStorage.class})
 
 
 public class InMemoryFilmStorageTest {
@@ -262,7 +262,7 @@ public class InMemoryFilmStorageTest {
     @Test
     public void shouldReturnPositiveWhenGetAllRatingIsCorrect() {
         Collection<Mpa> allRatings = inMemoryFilmStorage.getAllRatings();
-        Integer MAX_RATING = 5;
+        final Integer MAX_RATING = 5;
         assertEquals(MAX_RATING, allRatings.size());
     } //Проверяем корректность получения всех рейтингов
 
@@ -282,7 +282,7 @@ public class InMemoryFilmStorageTest {
     public void shouldReturnPositiveWhenGetAllGenresIsCorrect() {
 
         Collection<Genre> allGenres = inMemoryFilmStorage.getAllGenres();
-        Integer MAX_GENRE = 6;
+        final Integer MAX_GENRE = 6;
         assertEquals(MAX_GENRE, allGenres.size());
     } //Проверяем корректность получения всех жанров
 

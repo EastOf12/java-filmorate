@@ -24,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({UserRowMapper.class, UserDbStorage.class, InMemoryUserStorage.class
-        , UserRowMapper.class, UserFriendDbStorage.class})
+@Import({UserRowMapper.class, UserDbStorage.class, InMemoryUserStorage.class,
+        UserRowMapper.class, UserFriendDbStorage.class})
 public class InMemoryUserStorageTest {
 
     private final InMemoryUserStorage inMemoryUserStorage;
