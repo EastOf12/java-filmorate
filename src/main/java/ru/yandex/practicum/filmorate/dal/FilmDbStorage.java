@@ -30,17 +30,16 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
             WHERE f.id = ?""";
 
     private static final String FIND_ALL_QUERY = """
-            SELECT f.id, f.name, f.description, f.duration, f.release_date, fl.user_id, 
-                   r.id AS rating_id, r.name AS rating_name 
+            SELECT f.id, f.name, f.description, f.duration, f.release_date, fl.user_id
+            , r.id AS rating_id, r.name AS rating_name\s
             FROM films f
             LEFT JOIN film_likes fl ON f.id = fl.film_id
             LEFT JOIN film_rating fr ON f.id = fr.film_id
             LEFT JOIN rating r ON fr.rating_id = r.id
-            """;
+           \s""";
 
     private static final String UPDATE_QUERY = "UPDATE films SET name = ?, description = ?, duration = ?, release_date = ? " +
             "WHERE id = ?";
-    ;
 
     private static final String GET_ALL_RATINGS_QUERY = "SELECT id, name FROM rating ORDER BY id";
     private static final String GET_RATING_BY_ID_QUERY = "SELECT id, name FROM rating WHERE id = ?";
