@@ -99,8 +99,8 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
     } //Добавляем новый фильм в БД.
 
     public void updateFilm(Film film) {
-        jdbcTemplate.update(UPDATE_QUERY, film.getName(), film.getDescription(), film.getDuration(), film.getReleaseDate()
-                , film.getId());
+        jdbcTemplate.update(UPDATE_QUERY, film.getName(), film.getDescription(), film.getDuration(), film.getReleaseDate(),
+                film.getId());
 
         if (film.getMpa() != null) {
             updateRating(film.getId(), film.getMpa().getId());
@@ -183,7 +183,7 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
 
         // Добавляем к фильмам их жанры.
         Map<Long, Set<Integer>> allFilmGenres = getAllGenresFilm(); //Все жанры с привязкой к конкретному пользователю
-        Collection<Genre> AllGenre = getAllGenres();
+        Collection<Genre> allGenre = getAllGenres();
 
 
         for (Film film : films) {
@@ -197,7 +197,7 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
                     Genre genre = new Genre();
                     genre.setId(genreId);
 
-                    for (Genre gd : AllGenre) {
+                    for (Genre gd : allGenre) {
                         Long gdId = (long) gd.getId();
 
                         if (gdId.equals(film.getId())) {
