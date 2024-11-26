@@ -1,7 +1,16 @@
 package ru.yandex.practicum.filmorate;
 
+
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
+import org.springframework.context.annotation.Import;
+import ru.yandex.practicum.filmorate.dal.UserDbStorage;
+import ru.yandex.practicum.filmorate.dal.UserFriendDbStorage;
+import ru.yandex.practicum.filmorate.dal.mappers.UserRowMapper;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
@@ -12,20 +21,25 @@ import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@JdbcTest
+@AutoConfigureTestDatabase
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
+@Import({UserRowMapper.class, UserDbStorage.class, InMemoryUserStorage.class
+        , UserRowMapper.class, UserFriendDbStorage.class})
 public class InMemoryUserStorageTest {
-    User user = new User();
-    private InMemoryUserStorage inMemoryUserStorage;
+
+    private final InMemoryUserStorage inMemoryUserStorage;
+    private User user;
 
     @BeforeEach
     public void beforeEachFile() throws IOException {
-        inMemoryUserStorage = new InMemoryUserStorage();
 
-        //Создаем объект пользователя с правильными параметрами.
+        //Создаем объект фильма с правильными параметрами.
         user = new User();
+        user.setLogin("Bob123");
+        user.setName("Bob");
         user.setEmail("blabla@gmail.com");
-        user.setName("Boris");
-        user.setLogin("bor12345");
-        user.setBirthday(LocalDate.of(2004, 12, 12));
+        user.setBirthday(LocalDate.of(2000, 12, 12));
     }
 
     @Test
@@ -33,18 +47,18 @@ public class InMemoryUserStorageTest {
         //Добавляем пользователя
         inMemoryUserStorage.create(user);
 
-        //Проверяем, что пользователь с правильными параметрыми успешно добавлен.
+        //Проверяем, что пользователь с правильными параметрами успешно добавлен.
         assertEquals(1, inMemoryUserStorage.getAll().size(), "Пользователь не создан");
         assertEquals(user, inMemoryUserStorage.getAll().stream().findFirst().orElse(null), "Пользователи не " +
                 "равны");
     } //Проверяем корректность добавления пользователя с правильными параметрами.
 
+
     @Test
     public void shouldReturnPositiveWhenUpdateUserIsCorrect() {
         //Добавляем пользователя
         inMemoryUserStorage.create(user);
-        assertEquals(1, Objects.requireNonNull(inMemoryUserStorage.getAll().stream().findFirst()
-                .orElse(null)).getId(), "Пользователь должен быть 1");
+        assertEquals(1, inMemoryUserStorage.getAll().size(), "Пользователь должен быть 1");
 
         //Создаем объект пользователя с правильными параметрами для обновления.
         User newUser = new User();
@@ -52,14 +66,13 @@ public class InMemoryUserStorageTest {
         newUser.setName("Boris");
         newUser.setLogin("bor12345");
         newUser.setBirthday(LocalDate.of(2004, 12, 12));
-        newUser.setId((long) 1);
+        newUser.setId(user.getId());
 
         //Обновляем пользователя
         inMemoryUserStorage.update(newUser);
 
         //Проверяем что пользователь по прежнему 1.
-        assertEquals(1, Objects.requireNonNull(inMemoryUserStorage.getAll().stream().findFirst()
-                .orElse(null)).getId(), "Пользователь должен быть 1");
+        assertEquals(1, inMemoryUserStorage.getAll().size(), "Пользователь должен быть 1");
 
         //Проверяем, что пользователь обновлен.
         assertEquals(newUser, Objects.requireNonNull(inMemoryUserStorage.getAll().stream().findFirst()

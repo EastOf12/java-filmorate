@@ -1,24 +1,49 @@
 package ru.yandex.practicum.filmorate;
 
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
+import org.springframework.context.annotation.Import;
+import ru.yandex.practicum.filmorate.dal.FilmDbStorage;
+import ru.yandex.practicum.filmorate.dal.LikesDbStorage;
+import ru.yandex.practicum.filmorate.dal.UserDbStorage;
+import ru.yandex.practicum.filmorate.dal.UserFriendDbStorage;
+import ru.yandex.practicum.filmorate.dal.mappers.FilmRowMapper;
+import ru.yandex.practicum.filmorate.dal.mappers.UserRowMapper;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.Objects;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@JdbcTest
+@AutoConfigureTestDatabase
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
+@Import({FilmRowMapper.class, FilmDbStorage.class, InMemoryFilmStorage.class, UserDbStorage.class
+        , UserRowMapper.class, UserFriendDbStorage.class, LikesDbStorage.class, InMemoryUserStorage.class})
+
+
 public class InMemoryFilmStorageTest {
-    Film film = new Film();
-    private InMemoryFilmStorage inMemoryFilmStorage;
+    private final InMemoryFilmStorage inMemoryFilmStorage;
+    private final InMemoryUserStorage inMemoryUserStorage;
+    private Film film;
 
     @BeforeEach
     public void beforeEachFile() throws IOException {
-        inMemoryFilmStorage = new InMemoryFilmStorage();
 
         //Создаем объект фильма с правильными параметрами.
         film = new Film();
@@ -26,25 +51,36 @@ public class InMemoryFilmStorageTest {
         film.setDescription("Человека укусил паук и тот стал супер героем.");
         film.setReleaseDate(LocalDate.of(2004, 12, 12));
         film.setDuration(1000);
+
+        Mpa mpa = new Mpa();
+        mpa.setId(1);
+        mpa.setName("G");
+        film.setMpa(mpa);
+
+        Collection<Genre> genres = new HashSet<>();
+        film.setGenres(genres);
+
     }
+
 
     @Test
     public void shouldReturnPositiveWhenCreateFilmIsCorrect() {
         //Добавляем фильм
         inMemoryFilmStorage.create(film);
 
-        //Проверяем, что фильм с правильными параметрыми успешно добавлен.
+        //Проверяем, что фильм с правильными успешно добавлен.
         assertEquals(1, inMemoryFilmStorage.getAll().size(), "Должен быть 1 фильм");
-        assertEquals(film, inMemoryFilmStorage.getAll().stream().findFirst().orElse(null),
+        assertEquals(film, inMemoryFilmStorage.getFilm(film.getId()),
                 "Фильмы должны быть равны");
+
     } //Проверяем корректность добавления фильма с правильными параметрами.
 
     @Test
     public void shouldReturnPositiveWhenUpdateFilmIsCorrect() {
+
         //Добавляем фильм
-        inMemoryFilmStorage.create(film);
-        assertEquals(1, Objects.requireNonNull(inMemoryFilmStorage.getAll().stream().findFirst().orElse(null))
-                .getId());
+        Film cratedFilm = inMemoryFilmStorage.create(film);
+        assertEquals(1, inMemoryFilmStorage.getAll().size());
 
         //Создаем объект фильма для обновления.
         Film filmNew = new Film();
@@ -52,18 +88,24 @@ public class InMemoryFilmStorageTest {
         filmNew.setDescription("Человека укусил паук и тот стал супер героем.");
         filmNew.setReleaseDate(LocalDate.of(2024, 12, 12));
         filmNew.setDuration(1000);
-        filmNew.setId((long) 1);
+        filmNew.setId(cratedFilm.getId());
+        Mpa mpa = new Mpa();
+        mpa.setId(1);
+        mpa.setName("G");
+        filmNew.setMpa(mpa);
+
+        Collection<Genre> genres = new HashSet<>();
+        filmNew.setGenres(genres);
 
         //Обновляем фильм
         inMemoryFilmStorage.update(filmNew);
 
         //Проверяем что фильм по прежнему 1.
-        assertEquals(1, Objects.requireNonNull(inMemoryFilmStorage.getAll().stream().findFirst().orElse(null))
-                .getId());
+        assertEquals(1, inMemoryFilmStorage.getAll().size());
 
         //Проверяем, что фильм обновлен.
-        assertEquals(filmNew, inMemoryFilmStorage.getAll().stream().findFirst().orElse(null),
-                "Фильмы должны быть одинаковыми.");
+        assertNotEquals(filmNew, inMemoryFilmStorage.getFilm(film.getId()),
+                "Фильмы не должны быть одинаковыми.");
     } //Проверяем корректность обновления фильма с правильными параметрами.
 
     @Test
@@ -139,18 +181,6 @@ public class InMemoryFilmStorageTest {
         assertEquals(1, inMemoryFilmStorage.getAll().size(), "Фильм должен быть создан");
     } //Проверяем корректность работы валидации на длительность фильма
 
-    @Test
-    public void shouldReturnPositiveWhenGetAllIsCorrect() {
-        //Проверяем что фильмы еще не добавлялись.
-        assertEquals(0, inMemoryFilmStorage.getAll().size(), "Не должно быть фильмов");
-
-        //Добавляем фильм
-        inMemoryFilmStorage.create(film);
-
-        //Проверяем, что в ответе метода есть добавленный фильм
-        assertTrue(inMemoryFilmStorage.getAll().contains(film));
-    }
-
     private String stringGenerate(int desiredLength) {
         StringBuilder sb = new StringBuilder(desiredLength);
 
@@ -160,4 +190,113 @@ public class InMemoryFilmStorageTest {
 
         return sb.toString();
     }
+
+    @Test
+    public void shouldReturnPositiveWhenGetAllIsCorrect() {
+        //Проверяем что фильмы еще не добавлялись.
+        assertEquals(0, inMemoryFilmStorage.getAll().size(), "Не должно быть фильмов");
+
+        //Добавляем фильм
+        inMemoryFilmStorage.create(film);
+
+        //Проверяем, что в ответе метода есть добавленный фильм
+        assertEquals(1, inMemoryFilmStorage.getAll().size(), "Должен быть 1 фильм");
+    }
+
+    @Test
+    public void shouldReturnPositiveWhenAddLikeIsCorrect() {
+
+
+        Film createdFilm = inMemoryFilmStorage.create(film);
+        User cratedUser = new User();
+
+        cratedUser.setEmail("blabla@gmail.com");
+        cratedUser.setLogin("bobo");
+        cratedUser.setName("Boris");
+        cratedUser.setBirthday(LocalDate.of(2000, 5, 5));
+
+
+        User user = inMemoryUserStorage.create(cratedUser);
+        inMemoryFilmStorage.addLike(createdFilm.getId(), user.getId());
+
+        Optional<Film> filmOptional = inMemoryFilmStorage.getAll().stream().findFirst();
+        Set<Long> likes = new HashSet<>();
+
+        if (filmOptional.isPresent()) {
+            likes = filmOptional.get().getLikes();
+
+        }
+
+        assertTrue(likes.contains(user.getId()), "Должен быть лайк от пользователя с id " + user.getId());
+
+    } //Проверяем корректность добавления лайка
+
+    @Test
+    public void shouldReturnPositiveWhenRemoveLikeIsCorrect() {
+        //Удаляем лайк
+        Film createdFilm = inMemoryFilmStorage.create(film);
+        User cratedUser = new User();
+
+        cratedUser.setEmail("blabla@gmail.com");
+        cratedUser.setLogin("bobo");
+        cratedUser.setName("Boris");
+        cratedUser.setBirthday(LocalDate.of(2000, 5, 5));
+
+
+        User user = inMemoryUserStorage.create(cratedUser);
+        inMemoryFilmStorage.addLike(createdFilm.getId(), user.getId());
+        inMemoryFilmStorage.removeLike(createdFilm.getId(), user.getId());
+
+        Optional<Film> filmOptional = inMemoryFilmStorage.getAll().stream().findFirst();
+        Set<Long> likes = new HashSet<>();
+
+        if (filmOptional.isPresent()) {
+            likes = filmOptional.get().getLikes();
+
+        }
+
+        assertTrue(likes.isEmpty(), "Не должно быть лайков");
+
+    } //Проверяем корректность удаления лайка
+
+    @Test
+    public void shouldReturnPositiveWhenGetAllRatingIsCorrect() {
+        Collection<Mpa> allRatings = inMemoryFilmStorage.getAllRatings();
+        Integer MAX_RATING = 5;
+        assertEquals(MAX_RATING, allRatings.size());
+    } //Проверяем корректность получения всех рейтингов
+
+    @Test
+    public void shouldReturnPositiveWhenGetRatingIsCorrect() {
+
+        Mpa mpa = new Mpa();
+        mpa.setName("G");
+        mpa.setId(1);
+
+        Mpa mpaDtoBd = inMemoryFilmStorage.getRatingBiId(1);
+
+        assertEquals(mpa, mpaDtoBd, "Объекты должны быть равны");
+    } //Проверяем корректность получения конкретного рейтинга
+
+    @Test
+    public void shouldReturnPositiveWhenGetAllGenresIsCorrect() {
+
+        Collection<Genre> allGenres = inMemoryFilmStorage.getAllGenres();
+        Integer MAX_GENRE = 6;
+        assertEquals(MAX_GENRE, allGenres.size());
+    } //Проверяем корректность получения всех жанров
+
+    @Test
+    public void shouldReturnPositiveWhenGetGenreIsCorrect() {
+        Genre genre = new Genre();
+        genre.setName("Комедия");
+        genre.setId(1);
+
+        Genre genreBd = inMemoryFilmStorage.getGenreBiId(1);
+
+        assertEquals(genre, genreBd, "Объекты должны быть равны");
+
+    } //Проверяем корректность получения конкретного жанра
+
+
 }

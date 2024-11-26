@@ -1,16 +1,24 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.dto.FilmDto;
+import ru.yandex.practicum.filmorate.dto.GenreDto;
+import ru.yandex.practicum.filmorate.dto.MpaDto;
+import ru.yandex.practicum.filmorate.dto.requests.NewFilmRequest;
+import ru.yandex.practicum.filmorate.dto.requests.UpdateFilmRequest;
+import ru.yandex.practicum.filmorate.mappers.FilmMapper;
+import ru.yandex.practicum.filmorate.mappers.GenreMapper;
+import ru.yandex.practicum.filmorate.mappers.MpaMapper;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
-import ru.yandex.practicum.filmorate.storage.UserStorage;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -18,108 +26,105 @@ import java.util.*;
 public class FilmService {
 
     private final FilmStorage filmStorage;
-    private final UserStorage userStorage;
 
-    @Autowired
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+
+    public FilmService(FilmStorage filmStorage) {
         this.filmStorage = filmStorage;
-        this.userStorage = userStorage;
     }
 
-    public Film create(Film film) {
-        return filmStorage.create(film);
+    public FilmDto create(NewFilmRequest newFilm) {
+        return FilmMapper.mapToFilmDto(filmStorage.create(FilmMapper.mapToFilm(newFilm)));
     }
 
-    public Film update(Film updateFilm) {
-        return filmStorage.update(updateFilm);
+    public FilmDto update(UpdateFilmRequest updateFilm) {
+        return FilmMapper.mapToFilmDto(filmStorage.update(FilmMapper.mapToFilmUpdate(updateFilm)));
     }
 
-    public Collection<Film> getAll() {
-        return filmStorage.getAll();
+    public FilmDto getFilm(Long id) {
+        return FilmMapper.mapToFilmDto(filmStorage.getFilm(id));
+    }
+
+    public Collection<FilmDto> getAll() {
+        Collection<FilmDto> filmsDto = new ArrayList<>();
+        Collection<Film> films = filmStorage.getAll();
+
+        for (Film film : films) {
+            filmsDto.add(FilmMapper.mapToFilmDto(film));
+        }
+
+        return filmsDto;
     }
 
 
     public void addLike(Long filmId, Long userId) {
-        Film film = filmStorage.getFilm(filmId);
-
-        //Находим фильм по его айди
-        if (film == null) {
-            log.warn("Нет фильма с id {}", filmId);
-            throw new NotFoundException("Нет фильма с id " + filmId);
-        }
-
-        //Находим пользователя с таким айди
-        User user = userStorage.getUser(userId);
-        if (user == null) {
-            log.warn("Нет пользователя с id {}", userId);
-            throw new NotFoundException("Нет пользователя с id " + userId);
-        }
-
-        //Добавляем лайк на фильм
-        Set<Long> likes = film.getLikes();
-        if (likes.contains(userId)) {
-            log.warn("Лайк к фильму с id {} был добавлен ранее", filmId);
-            throw new ValidationException("Лайк был добавлен ранее");
-        } else {
-            log.info("Поставили лайк фильму с id={}", filmId);
-            likes.add(userId);
-        }
+        filmStorage.addLike(filmId, userId);
     } //Добавляет лайк
 
     public void deleteLike(Long filmId, Long userId) {
-        //Находим фильм по его айди
-        Film film = filmStorage.getFilm(filmId);
-
-        //Находим фильм по его айди
-        if (film == null) {
-            log.warn("Нет фильма с id {}", filmId);
-            throw new NotFoundException("Нет фильма с id " + filmId);
-        }
-
-        //Находим пользователя с таким айди
-        User user = userStorage.getUser(userId);
-        if (user == null) {
-            log.warn("Нет пользователя с id {}", userId);
-            throw new NotFoundException("Нет пользователя с id " + userId);
-        }
-
-        //Удаляем лайк с фильма
-        Set<Long> likes = film.getLikes();
-        if (!likes.contains(userId)) {
-            log.info("Пользователь {} не ставил лайк фильму id={}", userId, filmId);
-            throw new ValidationException("Пользователь не ставил лайк фильму " + filmId);
-        }
-
-        log.warn("Удалили лайк с фильма {}", filmId);
-        likes.remove(userId);
-
+        filmStorage.removeLike(filmId, userId);
     } //Удаляет лайк
 
-    public Collection<Film> getPopularFilms(int count) {
-        //Получаем все доступные фильмы.
+    public Collection<FilmDto> getPopularFilms(int count) {
+        // Получаем все доступные фильмы.
         Collection<Film> films = filmStorage.getAll();
 
-        if (films == null) {
+        if (films == null || films.isEmpty()) {
             log.info("Фильмы не найдены");
             return new ArrayList<>();
-        } else {
-            //Сортируем фильмы по количеству лайков
-            Comparator<Film> likesComparator = new Comparator<Film>() {
-                @Override
-                public int compare(Film film1, Film film2) {
-                    int likesCount1 = film1.getLikes().size();
-                    int likesCount2 = film2.getLikes().size();
-                    return Integer.compare(likesCount2, likesCount1);
-                }
-            };
-
-            // Сортировка коллекции films
-            List<Film> sortedFilms = new ArrayList<>(films);
-            sortedFilms.sort(likesComparator);
-
-            // Оставляем нужное количество фильмов
-            log.info("Вернули топ популярных фильмов в колличестве {}", count);
-            return sortedFilms.subList(0, Math.min(count, sortedFilms.size()));
         }
+
+        // Сортируем фильмы по количеству лайков
+        List<Film> sortedFilms = new ArrayList<>(films);
+        sortedFilms.sort((film1, film2) ->
+                Integer.compare(film2.getLikes().size(), film1.getLikes().size())
+        );
+
+        // Оставляем нужное количество фильмов
+        int size = Math.min(count, sortedFilms.size());
+        log.info("Вернули топ популярных фильмов в количестве {}", size);
+
+        // Создаем новую коллекцию только с нужным количеством популярных фильмов
+        return sortedFilms.subList(0, size).stream()
+                .map(FilmMapper::mapToFilmDto)
+                .collect(Collectors.toList());
     } //Возвращает самые популярные фильмы
+
+    public Collection<MpaDto> getAllMpa() {
+        List<MpaDto> mpaDtos = new ArrayList<>();
+        Collection<Mpa> mpas = filmStorage.getAllRatings();
+
+        for (Mpa mpa : mpas) {
+            MpaDto mpaDto = new MpaDto();
+            mpaDto.setId(mpa.getId());
+            mpaDto.setName(mpa.getName());
+            mpaDtos.add(mpaDto);
+        }
+
+        mpaDtos.sort((g1, g2) -> Integer.compare(g1.getId(), g2.getId()));
+
+        return mpaDtos;
+    }
+
+    public MpaDto getMpa(int id) {
+        return MpaMapper.mapToMpaDto(filmStorage.getRatingBiId(id));
+    }
+
+    public Collection<GenreDto> getAllGenres() {
+        Collection<Genre> genres = filmStorage.getAllGenres();
+        List<GenreDto> genreDtos = new ArrayList<>();
+
+        // Заполняем список genreDtos из коллекции жанров
+        for (Genre genre : genres) {
+            GenreDto genreDto = new GenreDto();
+            genreDto.setId(genre.getId());
+            genreDto.setName(genre.getName());
+            genreDtos.add(genreDto); // Добавляем genreDto в список
+        }
+
+        return genreDtos;
+    }
+
+    public GenreDto getGenre(int id) {
+        return GenreMapper.mapToGenreDto(filmStorage.getGenreBiId(id));
+    }
 }

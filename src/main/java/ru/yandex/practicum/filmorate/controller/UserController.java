@@ -3,7 +3,9 @@ package ru.yandex.practicum.filmorate.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.dto.UserDto;
+import ru.yandex.practicum.filmorate.dto.requests.NewUserRequest;
+import ru.yandex.practicum.filmorate.dto.requests.UpdateUserRequest;
 import ru.yandex.practicum.filmorate.service.UserService;
 
 import java.util.Collection;
@@ -16,17 +18,17 @@ public class UserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public User create(@RequestBody User user) {
+    public UserDto create(@RequestBody NewUserRequest user) {
         return userService.create(user);
     } //Создать пользователя
 
     @PutMapping
-    public User update(@RequestBody User newUser) {
-        return userService.update(newUser);
+    public UserDto update(@RequestBody UpdateUserRequest updateUserRequest) {
+        return userService.update(updateUserRequest);
     } //Обновить пользователя
 
     @GetMapping
-    public Collection<User> getAll() {
+    public Collection<UserDto> getAll() {
         return userService.getAll();
     } //Получить всех пользователей
 
@@ -42,12 +44,12 @@ public class UserController {
     } //Удалить пользователя из друзей
 
     @GetMapping("/{id}/friends")
-    public Collection<User> getUserFriends(@PathVariable Long id) {
+    public Collection<UserDto> getUserFriends(@PathVariable Long id) {
         return userService.getAllUserFriends(id);
     } //Получить всех друзей пользователя
 
     @GetMapping("/{id}/friends/common/{otherId}")
-    public Collection<User> getFriendsCommon(@PathVariable Long id, @PathVariable Long otherId) {
+    public Collection<UserDto> getFriendsCommon(@PathVariable Long id, @PathVariable Long otherId) {
         return userService.getFriendsCommon(id, otherId);
     } //Возвращает список друзей общий с другим пользователем.
 }

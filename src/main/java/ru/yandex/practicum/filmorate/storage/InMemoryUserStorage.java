@@ -3,20 +3,27 @@ package ru.yandex.practicum.filmorate.storage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
+import ru.yandex.practicum.filmorate.dal.UserDbStorage;
+import ru.yandex.practicum.filmorate.dal.UserFriendDbStorage;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Set;
 
 @Service
 @Slf4j
 @Component
 public class InMemoryUserStorage implements UserStorage {
-    private final Map<Long, User> users = new HashMap<>();
+    private final UserDbStorage userDbStorage;
+    private final UserFriendDbStorage userFriendDbStorage;
+
+    public InMemoryUserStorage(UserDbStorage userDbStorage, UserFriendDbStorage userFriendDbStorage) {
+        this.userDbStorage = userDbStorage;
+        this.userFriendDbStorage = userFriendDbStorage;
+    }
 
     @Override
     public User create(User user) {
@@ -26,11 +33,11 @@ public class InMemoryUserStorage implements UserStorage {
         passValidationCreate(user);
         log.debug("Валидация пройдена.");
 
+        //Создаем пользователя в базе данных
+        userDbStorage.createUser(user);
 
-        //Создаем пользователя в памяти приложения
-        user.setId(getNextId());
-        users.put(user.getId(), user);
         log.info("Добавлен новый пользователь {}", user.getId());
+
         return user;
     }
 
@@ -44,51 +51,108 @@ public class InMemoryUserStorage implements UserStorage {
             throw new ValidationException("Id должен быть указан");
         }
 
-        User user = users.get(updateUser.getId());
+        User user = userDbStorage.findById(updateUser.getId());
 
-        if (user == null) {
-            log.warn("Валидация не пройдена. Пользователь с id = {} не найден", updateUser.getId());
-            throw new NotFoundException("Пользователь с id = " + updateUser.getId() + " не найден");
-        } else {
-            if (updateUser.getName() != null && !updateUser.getName().isBlank()) {
-                user.setName(updateUser.getName());
-            }
-
-            if (updateUser.getEmail() != null && !updateUser.getEmail().isBlank() && updateUser.getEmail().contains("@")) {
-                user.setEmail(updateUser.getEmail());
-            }
-
-            if (updateUser.getLogin() != null && !updateUser.getLogin().isBlank() && !updateUser.getLogin().contains(" ")) {
-                user.setLogin(updateUser.getLogin());
-            }
-
-            if (updateUser.getBirthday() != null && updateUser.getBirthday().isAfter(LocalDate.now())) {
-                user.setBirthday(updateUser.getBirthday());
-            }
+        //Валидируем поля
+        if (updateUser.getName() != null && !updateUser.getName().isBlank()) {
+            user.setName(updateUser.getName());
         }
 
+        if (updateUser.getEmail() != null && !updateUser.getEmail().isBlank() && updateUser.getEmail().contains("@")) {
+            user.setEmail(updateUser.getEmail());
+        }
+
+        if (updateUser.getLogin() != null && !updateUser.getLogin().isBlank() && !updateUser.getLogin().contains(" ")) {
+            user.setLogin(updateUser.getLogin());
+        }
+
+        if (updateUser.getBirthday() != null && updateUser.getBirthday().isBefore(LocalDate.now())) {
+            user.setBirthday(updateUser.getBirthday());
+        }
+
+        //Обновляем пользователя в БД
+        userDbStorage.updateUser(user);
+
+
         log.info("Обновлен пользователь {}", updateUser.getId());
-        return updateUser;
+        return user;
     }
 
     @Override
     public Collection<User> getAll() {
         log.info("Предали информацию по все доступным пользователям.");
-        return users.values();
+
+        return userDbStorage.findAll();
+    }
+
+    @Override
+    public Collection<User> getUsersByIds(Set<Long> userIds) {
+        return userDbStorage.findUsersByIds(userIds);
     }
 
     @Override
     public User getUser(Long userID) {
-        return users.get(userID);
+        return userDbStorage.findById(userID);
     }
 
-    private long getNextId() {
-        long currentMaxId = users.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
+    @Override
+    public void addFriend(Long userId, Long friendId) {
+
+        //Проверяем, что такие пользователи существуют в бд и указаны корректно
+        if (userId.equals(friendId)) {
+            log.warn("Пользователь с id {} хочет добавить в друзья сам себя", userId);
+            throw new NotFoundException("Нельзя добавить в друзья самого себя");
+        }
+
+        User user = getUser(userId);
+        User otherUser = getUser(friendId);
+
+
+        if (user == null) {
+            log.warn("Нет пользователя с id {}", userId);
+            throw new NotFoundException("Нет пользователя с id " + userId);
+        }
+
+        if (otherUser == null) {
+            log.warn("Нет пользователя с id {}", friendId);
+            throw new NotFoundException("Нет пользователя с id " + friendId);
+        }
+
+        //Проверяем, что пользователь не был добавлен в друзья ранее
+        if (checkFriendship(userId, friendId)) {
+            log.warn("Пользователь {} уже в друзьях пользователя {}", friendId, userId);
+            throw new NotFoundException("Пользователи уже дружат" + friendId);
+        }
+
+        //Добавляем пользователей в друзья в БД
+        userFriendDbStorage.addFriend(userId, friendId);
+
+        log.info("Пользователь {} добавил в друзья пользователя {}", userId, friendId);
+    }
+
+    @Override
+    public void removeFriend(Long userId, Long friendId) {
+
+        //Проверяем, что такие пользователи существуют и являются друзьями
+        User user = getUser(userId);
+        User otherUser = getUser(friendId);
+
+        if (user == null) {
+            log.warn("Нет пользователя с id {}", userId);
+            throw new NotFoundException("Нет пользователя с id " + userId);
+        }
+
+        if (otherUser == null) {
+            log.warn("Нет пользователя с id {}", friendId);
+            throw new NotFoundException("Нет пользователя с id " + friendId);
+        }
+
+        if (checkFriendship(userId, friendId)) {
+            userFriendDbStorage.removeFriend(userId, friendId, friendId, userId);
+            log.info("Пользователь {} удалил из друзей пользователя {}", userId, friendId);
+        } else {
+            log.warn("Пользователь {} не дружит с пользователем {}", friendId, userId);
+        }
     }
 
     private void passValidationCreate(User user) {
@@ -113,5 +177,13 @@ public class InMemoryUserStorage implements UserStorage {
             log.trace("Имя пользователя не было получено, перезаписали на логин.");
             user.setName(user.getLogin());
         }
+    }
+
+    private boolean checkFriendship(Long userId, Long friendId) {
+        return userFriendDbStorage.checkFriendship(userId, friendId) == 1;
+    } //Проверяем, являются ли пользователи друзьями.
+
+    public Collection<User> getAllUserFriends(Long userId) {
+        return userDbStorage.getAllUserFriends(userId);
     }
 }
