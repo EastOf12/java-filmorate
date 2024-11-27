@@ -8,8 +8,8 @@ import ru.yandex.practicum.filmorate.dal.mappers.UserRowMapper;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
 
+import java.sql.SQLException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
@@ -36,20 +36,6 @@ public class UserDbStorage extends BaseDbStorage<User> {
         this.userFriendDbStorage = userFriendDbStorage;
     }
 
-    private static String convertCollectionToIdString(Collection<Long> ids) {
-        // Собираем все идентификаторы в строку
-        StringBuilder idStringBuilder = new StringBuilder();
-
-        for (Long id : ids) {
-            if (!idStringBuilder.isEmpty()) {
-                idStringBuilder.append(", ");
-            }
-            idStringBuilder.append(id);
-        }
-
-        return idStringBuilder.toString();
-    }
-
     //Создает нового пользователя
     public void createUser(User user) {
 
@@ -62,8 +48,7 @@ public class UserDbStorage extends BaseDbStorage<User> {
         );
 
 
-        final String FIND_LAST_ID_QUERY = "SELECT MAX(id) FROM users";
-        Optional<Long> lastId = getLastId(FIND_LAST_ID_QUERY);
+        Optional<Long> lastId = getLastId();
 
 
         if (lastId.isPresent()) {
@@ -77,75 +62,28 @@ public class UserDbStorage extends BaseDbStorage<User> {
     }
 
     public List<User> findAll() {
-
         // Используем Map для хранения пользователей, чтобы избежать дубликатов
         Map<Long, User> userMap = new HashMap<>();
 
         jdbcTemplate.query(FIND_ALL_QUERY, rs -> {
             Long userId = rs.getLong("id");
 
-            // Если пользователь еще не добавлен, создаем новый объект
-            if (!userMap.containsKey(userId)) {
-                User user = new User();
-                user.setId(userId);
-                user.setEmail(rs.getString("email"));
-                user.setLogin(rs.getString("login"));
-                user.setName(rs.getString("name"));
-                user.setBirthday(rs.getDate("birthday").toLocalDate());
-                user.setFriends(new HashSet<>()); // Инициализируем пустой набор друзей
-                userMap.put(userId, user);
-            }
+            // Создаем или получаем существующего пользователя
+            User user = userMap.computeIfAbsent(userId, key -> {
+                try {
+                    return new UserRowMapper().mapRow(rs, 0);
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            });
 
             // Добавляем друга, если он есть
             Long friendId = rs.getLong("friend_id");
             if (!rs.wasNull()) {
-                userMap.get(userId).getFriends().add(friendId);
+                assert user != null;
+                user.getFriends().add(friendId);
             }
         });
-
-        return new ArrayList<>(userMap.values());
-    } // Возвращаем список пользователей
-
-    public List<User> findUsersByIds(Set<Long> userIds) {
-
-        System.out.println("Общие id пользователей " + userIds);
-        if (userIds.isEmpty()) {
-            return new ArrayList<>(); // Если нет идентификаторов, возвращаем пустой список
-        }
-
-        String sql = "SELECT u.id, u.email, u.login, u.name, u.birthday, uf.friend_id " +
-                "FROM users u " +
-                "LEFT JOIN user_friends uf ON u.id = uf.user_id " +
-                "WHERE u.id IN (" + userIds.stream()
-                .map(String::valueOf)
-                .collect(Collectors.joining(",")) + ")";
-
-        // Используем Map для хранения пользователей, чтобы избежать дубликатов
-        Map<Long, User> userMap = new HashMap<>();
-
-        jdbcTemplate.query(sql, rs -> {
-            Long userId = rs.getLong("id");
-
-            // Если пользователь еще не добавлен, создаем новый объект
-            if (!userMap.containsKey(userId)) {
-                User user = new User();
-                user.setId(userId);
-                user.setEmail(rs.getString("email"));
-                user.setLogin(rs.getString("login"));
-                user.setName(rs.getString("name"));
-                user.setBirthday(rs.getDate("birthday").toLocalDate());
-                user.setFriends(new HashSet<>()); // Инициализируем пустой набор друзей
-                userMap.put(userId, user);
-            }
-
-            // Добавляем друга, если он есть
-            Long friendId = rs.getLong("friend_id");
-            if (!rs.wasNull()) {
-                userMap.get(userId).getFriends().add(friendId);
-            }
-        });
-
-        System.out.println("Общие пользователи " + userMap.values());
 
         return new ArrayList<>(userMap.values());
     }
@@ -173,37 +111,75 @@ public class UserDbStorage extends BaseDbStorage<User> {
         return user;
     }
 
-    public Collection<User> getAllUserFriends(Long userId) {
+    public List<User> getAllUserFriends(Long userId) {
+        Map<Long, User> userMap = new HashMap<>();
 
-        //Получаем id всех друзей пользователя
-        Collection<Long> allUserFriendsId = userFriendDbStorage.getAllUserFriendsId(userId);
+        final String FIND_USER_FRIENDS_QUERY =
+                "SELECT u.id, u.email, u.login, u.name, u.birthday, uf.friend_id " +
+                        "FROM users u " +
+                        "LEFT JOIN user_friends uf ON u.id = uf.user_id " +
+                        "WHERE u.id IN (SELECT friend_id FROM user_friends WHERE user_id = ?)";
 
-        //Получаем всех друзей пользователя
-        String usersId = convertCollectionToIdString(allUserFriendsId);
+        jdbcTemplate.query(FIND_USER_FRIENDS_QUERY, rs -> {
+            Long userIdFromDb = rs.getLong("id");
 
-        final String FIND_BY_MANY_ID_QUERY = "SELECT * FROM users WHERE id IN (" + usersId + ")";
-        List<User> users = findAll(FIND_BY_MANY_ID_QUERY);
+            // Создаем или получаем существующего пользователя
+            User user = userMap.computeIfAbsent(userIdFromDb, key -> {
+                try {
+                    return new UserRowMapper().mapRow(rs, 0);
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            });
 
-        //Получаем таблицу друзей каждого юзера
-        Map<Long, Set<Long>> userFriends = userFriendDbStorage.getUserFriends();
-
-        //Добавляем id друзей в объекты user.
-        for (User user : users) {
-            Collection<Long> friendsId = userFriends.get(user.getId());
-
-            Set<Long> friendsIdSet;
-            if (friendsId != null) {
-                friendsIdSet = new HashSet<>(friendsId);
-            } else {
-                friendsIdSet = new HashSet<>();
+            // Добавляем друга, если он есть
+            Long friendId = rs.getLong("friend_id");
+            if (!rs.wasNull()) {
+                assert user != null;
+                user.getFriends().add(friendId);
             }
+        }, userId);
 
-            user.setFriends(friendsIdSet);
-        }
-
-        return users;
+        return new ArrayList<>(userMap.values());
     }
 
+    public List<User> getFriendsCommon(Long userId, Long otherUserId) {
+        Map<Long, User> userMap = new HashMap<>();
 
+        // Запрос для получения общих друзей
+        final String FIND_COMMON_FRIENDS_QUERY =
+                "SELECT u.id, u.email, u.login, u.name, u.birthday, uf.friend_id " +
+                        "FROM users u " +
+                        "LEFT JOIN user_friends uf ON u.id = uf.user_id " +
+                        "WHERE u.id IN (SELECT friend_id FROM user_friends WHERE user_id = ?) AND u.id IN (SELECT friend_id FROM user_friends WHERE user_id = ?)";
+
+
+        jdbcTemplate.query(FIND_COMMON_FRIENDS_QUERY, rs -> {
+            Long userIdFromDb = rs.getLong("id");
+
+            User user = userMap.computeIfAbsent(userIdFromDb, key -> {
+                try {
+                    User mappedUser = new UserRowMapper().mapRow(rs, 0);
+                    assert mappedUser != null;
+                    mappedUser.setFriends(new HashSet<>());
+                    return mappedUser;
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            Long friendId = rs.getLong("friend_id");
+            if (!rs.wasNull()) {
+                user.getFriends().add(friendId);
+            }
+        }, otherUserId, userId);
+
+        return new ArrayList<>(userMap.values());
+    }
+
+    public Optional<Long> getLastId(Object... params) {
+        final String FIND_LAST_ID_QUERY = "SELECT MAX(id) FROM users";
+        return Optional.ofNullable(jdbcTemplate.queryForObject(FIND_LAST_ID_QUERY, Long.class, params));
+    } //Получаем последний id в таблице
 }
 

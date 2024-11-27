@@ -11,7 +11,6 @@ import ru.yandex.practicum.filmorate.model.User;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Set;
 
 @Service
 @Slf4j
@@ -86,8 +85,8 @@ public class InMemoryUserStorage implements UserStorage {
     }
 
     @Override
-    public Collection<User> getUsersByIds(Set<Long> userIds) {
-        return userDbStorage.findUsersByIds(userIds);
+    public Collection<User> getFriendsCommon(Long userId, Long otherId) {
+        return userDbStorage.getFriendsCommon(userId, otherId);
     }
 
     @Override

@@ -19,7 +19,6 @@ public class FilmController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public FilmDto create(@RequestBody NewFilmRequest newFilmRequest) {
-        System.out.println(newFilmRequest);
         return filmService.create(newFilmRequest);
     }
 

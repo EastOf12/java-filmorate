@@ -23,7 +23,6 @@ import java.util.Objects;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-
 public class InMemoryFilmStorage implements FilmStorage {
     private static final LocalDate MIN_RELEASE_DATE = LocalDate.of(1895, 12, 28);
     private static final int MAX_GENRE = 6;
@@ -39,18 +38,18 @@ public class InMemoryFilmStorage implements FilmStorage {
     private final LikesDbStorage likesDbStorage;
 
     @Override
-    public Film create(Film film) {
+    public Film create(Film newFilm) {
         log.trace("Получен запрос на добавление нового фильма");
 
         //Проходим валидацию полей.
-        passValidationCreate(film);
+        passValidationCreate(newFilm);
         log.debug("Валидация пройдена.");
 
         //Сохраняем новый фильм в БД
-        filmDbStorage.createFilm(film);
+        Film createdFilm = filmDbStorage.createFilm(newFilm);
 
-        log.info("Добавлен новый фильм {}", film.getId());
-        return film;
+        log.info("Добавлен новый фильм {}", createdFilm.getId());
+        return createdFilm;
     }
 
     @Override
@@ -105,8 +104,14 @@ public class InMemoryFilmStorage implements FilmStorage {
 
     @Override
     public Collection<Film> getAll() {
-        log.info("Отправили информацию по все фильмам.");
+        log.info("Отправили информацию по все фильмам с фильтрацией по id");
         return filmDbStorage.findAll();
+    }
+
+    @Override
+    public Collection<Film> findAllPopular() {
+        log.info("Отправили информацию по все фильмам с фильтрацией по популярности");
+        return filmDbStorage.findAllPopular();
     }
 
     @Override
@@ -145,31 +150,6 @@ public class InMemoryFilmStorage implements FilmStorage {
             log.warn("Пользователь {} не ставил лайк фильму {}", userId, filmId);
             throw new NotFoundException("Пользователь " + userId + " не ставил лайк фильму " + filmId);
         }
-    }
-
-    @Override
-    public Collection<Mpa> getAllRatings() {
-        return filmDbStorage.getAllRatings();
-    }
-
-    @Override
-    public Mpa getRatingBiId(Integer ratingId) {
-        return filmDbStorage.getRating(ratingId);
-    }
-
-    @Override
-    public Collection<Genre> getAllGenres() {
-        return filmDbStorage.getAllGenres();
-    }
-
-    @Override
-    public Genre getGenreBiId(Integer genreId) {
-
-        if (MAX_GENRE < genreId) {
-            throw new NotFoundException("Такой жанр не существует");
-        }
-
-        return filmDbStorage.getGenre(genreId);
     }
 
     private boolean checkLike(Long filmId, Long userId) {

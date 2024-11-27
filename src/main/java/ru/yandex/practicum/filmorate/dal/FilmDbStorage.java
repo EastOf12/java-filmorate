@@ -5,10 +5,12 @@ import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import ru.yandex.practicum.filmorate.dal.mappers.FilmRowMapper;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.storage.InMemoryGenreStorage;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,42 +19,47 @@ import java.util.*;
 
 @Slf4j
 @Repository
-
-
 public class FilmDbStorage extends BaseDbStorage<Film> {
-    private static final int MAX_MPA = 5;
     private static final String INSERT_QUERY = "INSERT INTO films (name, description, duration, release_date) " +
             "VALUES (?, ?, ?, ?)";
-
     private static final String FIND_BY_ID_QUERY = """
-            SELECT f.id, f.name, f.description, f.duration, f.release_date
+            SELECT f.id, f.name, f.description, f.duration, f.release_date,
+                   r.id AS rating_id, r.name AS rating_name
             FROM films f
-            WHERE f.id = ?""";
-
-    private static final String FIND_ALL_QUERY = """
-            SELECT f.id, f.name, f.description, f.duration, f.release_date, fl.user_id
-            , r.id AS rating_id, r.name AS rating_name\s
-            FROM films f
-            LEFT JOIN film_likes fl ON f.id = fl.film_id
             LEFT JOIN film_rating fr ON f.id = fr.film_id
             LEFT JOIN rating r ON fr.rating_id = r.id
-           \s""";
-
+            WHERE f.id = ?""";
+    private static final String FIND_ALL_QUERY = """
+             SELECT f.id, f.name, f.description, f.duration, f.release_date, fl.user_id
+             , r.id AS rating_id, r.name AS rating_name\s
+             FROM films f
+             LEFT JOIN film_likes fl ON f.id = fl.film_id
+             LEFT JOIN film_rating fr ON f.id = fr.film_id
+             LEFT JOIN rating r ON fr.rating_id = r.id
+            \s""";
+    private static final String FIND_ALL_QUERY_POPULAR = """
+             SELECT f.id, f.name, f.description, f.duration, f.release_date,
+                    COUNT(fl.user_id) AS like_count,
+                    r.id AS rating_id, r.name AS rating_name
+             FROM films f
+             LEFT JOIN film_likes fl ON f.id = fl.film_id
+             LEFT JOIN film_rating fr ON f.id = fr.film_id
+             LEFT JOIN rating r ON fr.rating_id = r.id
+             GROUP BY f.id, f.name, f.description, f.duration, f.release_date, r.id, r.name
+             ORDER BY like_count DESC
+            """;
     private static final String UPDATE_QUERY = "UPDATE films SET name = ?, description = ?, duration = ?, release_date = ? " +
             "WHERE id = ?";
-
-    private static final String GET_ALL_RATINGS_QUERY = "SELECT id, name FROM rating ORDER BY id";
-    private static final String GET_RATING_BY_ID_QUERY = "SELECT id, name FROM rating WHERE id = ?";
-    private static final String GET_ALL_GENRES_QUERY = "SELECT id, name FROM genres ORDER BY id";
-    private static final String GET_GENRE_BY_ID_QUERY = "SELECT id, name FROM genres WHERE id = ?";
     private static final String SELECT_GENRES_QUERY = "SELECT film_id, genre_id FROM film_genres";
+    private final InMemoryGenreStorage inMemoryGenreStorage;
 
 
-    public FilmDbStorage(JdbcTemplate jdbcTemplate, RowMapper<Film> mapper) {
+    public FilmDbStorage(JdbcTemplate jdbcTemplate, FilmRowMapper mapper, InMemoryGenreStorage inMemoryGenreStorage) {
         super(jdbcTemplate, mapper, Film.class);
+        this.inMemoryGenreStorage = inMemoryGenreStorage;
     }
 
-    public void createFilm(Film film) {
+    public Film createFilm(Film film) {
 
         insert(
                 INSERT_QUERY,
@@ -62,8 +69,8 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
                 film.getReleaseDate()
         );
 
-        final String FIND_LAST_ID_QUERY = "SELECT MAX(id) FROM films";
-        Optional<Long> lastId = getLastId(FIND_LAST_ID_QUERY);
+
+        Optional<Long> lastId = getLastId();
 
         if (lastId.isPresent()) {
             film.setId(lastId.get()); //Устанавливаем id фильма, которое получили от БД
@@ -81,7 +88,7 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
         }
         addGenres(film.getId(), allGenresId);
 
-        Collection<Genre> genres = getAllGenres();
+        Collection<Genre> genres = inMemoryGenreStorage.getAllGenres();
         List<Genre> filmGenres = new ArrayList<>();
 
         for (Genre genre : genres) {
@@ -96,6 +103,8 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
         film.setGenres(filmGenres);
 
         log.info("Фильм {} сохранен в базе данных", film.getId());
+
+        return film;
     } //Добавляем новый фильм в БД.
 
     public void updateFilm(Film film) {
@@ -119,25 +128,64 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
     } //Обновляем фильм в БД.
 
     public Film findById(Long filmId) {
-        // Тянем фильм по id.
-        Optional<Film> filmOptional = find(FIND_BY_ID_QUERY, filmId);
+        // Запрос для получения фильма с MPA
+        Optional<Film> filmOptional = jdbcTemplate.query(FIND_BY_ID_QUERY, rs -> {
+            Film film = null;
 
-        if (filmOptional.isEmpty()) {
+            while (rs.next()) {
+                if (film == null) {
+                    film = new FilmRowMapper().mapRow(rs, 0);
+                }
+
+                // Извлекаем MPA, если рейтинг существует
+                if (rs.getInt("rating_id") != 0) {
+                    Mpa mpa = new Mpa();
+                    mpa.setId(rs.getInt("rating_id"));
+                    mpa.setName(rs.getString("rating_name")); // Извлекаем имя рейтинга
+                    Objects.requireNonNull(film).setMpa(mpa); // Устанавливаем MPA для фильма
+                }
+            }
+
+            return Optional.ofNullable(film);
+        }, filmId);
+
+        // Проверяем, найден ли фильм, и выбрасываем исключение, если его нет
+        if (Objects.requireNonNull(filmOptional).isEmpty()) {
             log.error("Фильм с ID {} не найден", filmId);
             throw new NotFoundException("Фильм с ID " + filmId + " не найден");
         }
 
         Film film = filmOptional.get();
 
-        // Получаем рейтинг по id фильма.
-        Mpa mpa = findMpaByFilmId(filmId);
-        film.setMpa(mpa);
-
         // Получаем жанры по id фильма.
         Collection<Genre> genres = findGenresByFilmId(filmId);
         film.setGenres(genres);
 
         return film;
+    }
+
+    public List<Film> findAllPopular() {
+        List<Film> films = new ArrayList<>();
+
+        jdbcTemplate.query(FIND_ALL_QUERY_POPULAR, rs -> {
+            Film film = new FilmRowMapper().mapRow(rs, 0);
+
+            // Получаем количество лайков
+            int likeCount = rs.getInt("like_count");
+            Objects.requireNonNull(film).setLikes(new HashSet<>(likeCount)); // Устанавливаем размер коллекции лайков
+
+            // Обработка рейтинга
+            if (rs.getInt("rating_id") != 0) {
+                Mpa mpa = new Mpa();
+                mpa.setId(rs.getInt("rating_id"));
+                mpa.setName(rs.getString("rating_name")); // Устанавливаем имя для mpa
+                film.setMpa(mpa);
+            }
+
+            films.add(film);
+        });
+
+        return films; // Возвращаем список фильмов
     }
 
     public List<Film> findAll() {
@@ -147,18 +195,18 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
         jdbcTemplate.query(FIND_ALL_QUERY, rs -> {
             Long filmId = rs.getLong("id");
 
-            // Если фильм еще не добавлен, создаем новый объект
-            Film film = filmMap.get(filmId);
-            if (film == null) {
-                film = new Film();
-                film.setId(filmId);
-                film.setName(rs.getString("name"));
-                film.setDescription(rs.getString("description"));
-                film.setDuration(rs.getInt("duration"));
-                film.setReleaseDate(rs.getDate("release_date").toLocalDate());
-                film.setLikes(new HashSet<>()); // Инициализируем пустой набор лайков
-                filmMap.put(filmId, film);
-            }
+            // Сначала выполним отображение через FilmRowMapper
+            Film film = filmMap.computeIfAbsent(filmId, key -> {
+                Film mappedFilm;
+                try {
+                    mappedFilm = new FilmRowMapper().mapRow(rs, 0);
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+                assert mappedFilm != null;
+                mappedFilm.setLikes(new HashSet<>());
+                return mappedFilm;
+            });
 
             // Добавляем пользователя, если он есть
             Long userId = rs.getLong("user_id");
@@ -166,111 +214,16 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
                 film.getLikes().add(userId);
             }
 
-            // Добавляем рейтинг
-            Mpa mpa = new Mpa();
-            mpa.setId(rs.getInt("rating_id"));
-
-            // Здесь мы извлекаем name для рейтинга
-            String mpaName = rs.getString("rating_name"); // Изменение здесь
-            mpa.setName(mpaName); // Устанавливаем name для mpa
-
-            if (!rs.wasNull()) {
+            // Обработка рейтинга
+            if (rs.getInt("rating_id") != 0) {
+                Mpa mpa = new Mpa();
+                mpa.setId(rs.getInt("rating_id"));
+                mpa.setName(rs.getString("rating_name")); // Устанавливаем имя для mpa
                 film.setMpa(mpa);
             }
         });
 
-        ArrayList<Film> films = new ArrayList<>(filmMap.values());
-
-        // Добавляем к фильмам их жанры.
-        Map<Long, Set<Integer>> allFilmGenres = getAllGenresFilm(); //Все жанры с привязкой к конкретному пользователю
-        Collection<Genre> allGenre = getAllGenres();
-
-
-        for (Film film : films) {
-
-            if (allFilmGenres.containsKey(film.getId())) {
-
-                Collection<Genre> filmGenres = new HashSet<>();
-                Set<Integer> allGenresIdFilm = allFilmGenres.get(film.getId());
-
-                for (Integer genreId : allGenresIdFilm) {
-                    Genre genre = new Genre();
-                    genre.setId(genreId);
-
-                    for (Genre gd : allGenre) {
-                        Long gdId = (long) gd.getId();
-
-                        if (gdId.equals(film.getId())) {
-                            genre.setName(gd.getName());
-                        }
-                    }
-                }
-
-                film.setGenres(filmGenres);
-            } else {
-                film.setGenres(new HashSet<>());
-            }
-        }
-
-        return films;
-    }
-
-    public Collection<Mpa> getAllRatings() {
-
-        return jdbcTemplate.query(GET_ALL_RATINGS_QUERY, (rs, rowNum) -> {
-            int id = rs.getInt("id");
-            String name = rs.getString("name");
-
-            Mpa mpa = new Mpa();
-            mpa.setId(id);
-            mpa.setName(name);
-
-            return mpa;
-        });
-    } //Возвращает все рейтинги из таблицы с рейтингами.
-
-    public Mpa getRating(int ratingID) {
-        if (ratingID > MAX_MPA) {
-            throw new NotFoundException("Нет рейтинга с таким id");
-        }
-
-        return jdbcTemplate.queryForObject(GET_RATING_BY_ID_QUERY, new Object[]{ratingID}, (rs, rowNum) -> {
-            int id = rs.getInt("id");
-            String name = rs.getString("name");
-
-            Mpa mpa = new Mpa();
-            mpa.setId(id);
-            mpa.setName(name);
-
-            return mpa;
-        });
-    }
-
-    public Collection<Genre> getAllGenres() {
-        return jdbcTemplate.query(GET_ALL_GENRES_QUERY, (rs, rowNum) -> {
-            int id = rs.getInt("id");
-            String name = rs.getString("name");
-
-            Genre genre = new Genre();
-            genre.setId(id);
-            genre.setName(name);
-
-            return genre;
-        });
-
-    } //Возвращает все жанры
-
-    public Genre getGenre(int genreID) {
-        return jdbcTemplate.queryForObject(GET_GENRE_BY_ID_QUERY, new Object[]{genreID}, (rs, rowNum) -> {
-            int id = rs.getInt("id");
-            String name = rs.getString("name");
-
-            Genre genre = new Genre();
-            genre.setId(id);
-            genre.setName(name);
-
-            return genre;
-        });
+        return new ArrayList<>(filmMap.values()); // Возвращаем список фильмов
     }
 
     private void addRating(Long filmID, int ratingID) {
@@ -357,4 +310,9 @@ public class FilmDbStorage extends BaseDbStorage<Film> {
         return jdbcTemplate.query(query, (rs, rowNum) ->
                 new Genre(rs.getInt("id"), rs.getString("name")), filmId);
     }
+
+    public Optional<Long> getLastId(Object... params) {
+        final String FIND_LAST_ID_QUERY = "SELECT MAX(id) FROM films";
+        return Optional.ofNullable(jdbcTemplate.queryForObject(FIND_LAST_ID_QUERY, Long.class, params));
+    } //Получаем последний id в таблице
 }

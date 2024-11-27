@@ -14,7 +14,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class BaseDbStorage<T> {
     protected final JdbcTemplate jdbcTemplate;
-    private final RowMapper<T> mapper;
+    protected final RowMapper<T> mapper;
     private final Class<T> entityType;
 
     //Сохраняет данные в таблице
@@ -41,17 +41,6 @@ public class BaseDbStorage<T> {
     } //Получаем отдельную запись из таблицы
 
     protected List<T> findAll(String query) {
-
-        try {
-            return jdbcTemplate.query(query, mapper);
-        } catch (DataAccessException e) {
-            System.out.println(e.getMessage());
-            log.error("Ошибка при получении данных: {}", e.getMessage());
-            return null;
-        }
+        return jdbcTemplate.query(query, mapper);
     } //Получаем все данные из таблицы
-
-    protected Optional<Long> getLastId(String query, Object... params) {
-        return Optional.ofNullable(jdbcTemplate.queryForObject(query, Long.class, params));
-    } //Получаем последний id в таблице
 }

@@ -7,10 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
-import ru.yandex.practicum.filmorate.dal.FilmDbStorage;
-import ru.yandex.practicum.filmorate.dal.LikesDbStorage;
-import ru.yandex.practicum.filmorate.dal.UserDbStorage;
-import ru.yandex.practicum.filmorate.dal.UserFriendDbStorage;
+import ru.yandex.practicum.filmorate.dal.*;
 import ru.yandex.practicum.filmorate.dal.mappers.FilmRowMapper;
 import ru.yandex.practicum.filmorate.dal.mappers.UserRowMapper;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -19,6 +16,7 @@ import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.InMemoryGenreStorage;
 import ru.yandex.practicum.filmorate.storage.InMemoryUserStorage;
 
 import java.io.IOException;
@@ -34,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Import({FilmRowMapper.class, FilmDbStorage.class, InMemoryFilmStorage.class, UserDbStorage.class,
-        UserRowMapper.class, UserFriendDbStorage.class, LikesDbStorage.class, InMemoryUserStorage.class})
+        UserRowMapper.class, UserFriendDbStorage.class, LikesDbStorage.class, InMemoryUserStorage.class,
+        InMemoryGenreStorage.class, GenreDbStorage.class})
 
 
 public class InMemoryFilmStorageTest {
@@ -258,45 +257,4 @@ public class InMemoryFilmStorageTest {
         assertTrue(likes.isEmpty(), "Не должно быть лайков");
 
     } //Проверяем корректность удаления лайка
-
-    @Test
-    public void shouldReturnPositiveWhenGetAllRatingIsCorrect() {
-        Collection<Mpa> allRatings = inMemoryFilmStorage.getAllRatings();
-        final Integer MAX_RATING = 5;
-        assertEquals(MAX_RATING, allRatings.size());
-    } //Проверяем корректность получения всех рейтингов
-
-    @Test
-    public void shouldReturnPositiveWhenGetRatingIsCorrect() {
-
-        Mpa mpa = new Mpa();
-        mpa.setName("G");
-        mpa.setId(1);
-
-        Mpa mpaDtoBd = inMemoryFilmStorage.getRatingBiId(1);
-
-        assertEquals(mpa, mpaDtoBd, "Объекты должны быть равны");
-    } //Проверяем корректность получения конкретного рейтинга
-
-    @Test
-    public void shouldReturnPositiveWhenGetAllGenresIsCorrect() {
-
-        Collection<Genre> allGenres = inMemoryFilmStorage.getAllGenres();
-        final Integer MAX_GENRE = 6;
-        assertEquals(MAX_GENRE, allGenres.size());
-    } //Проверяем корректность получения всех жанров
-
-    @Test
-    public void shouldReturnPositiveWhenGetGenreIsCorrect() {
-        Genre genre = new Genre();
-        genre.setName("Комедия");
-        genre.setId(1);
-
-        Genre genreBd = inMemoryFilmStorage.getGenreBiId(1);
-
-        assertEquals(genre, genreBd, "Объекты должны быть равны");
-
-    } //Проверяем корректность получения конкретного жанра
-
-
 }

@@ -27,11 +27,7 @@ public class LikesDbStorage extends BaseDbStorage<Film> {
     }
 
     public void removeLike(Object... params) {
-        try {
-            jdbcTemplate.update(REMOVE_LIKE_QUERY, params);
-        } catch (Exception exception) {
-            System.out.println(exception.getMessage());
-        }
+        jdbcTemplate.update(REMOVE_LIKE_QUERY, params);
     } //Удаляем пользователя из друзей
 
     public Integer checkLike(Object... params) {

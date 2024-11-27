@@ -11,8 +11,6 @@ import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 
 @Service
 @Slf4j
@@ -80,16 +78,8 @@ public class UserService {
         User user = userStorage.getUser(userId);
         User otherUser = userStorage.getUser(otherUserId);
 
-        //Получаем id друзей пользователей
-        Set<Long> friendIdUser = user.getFriends();
-        Set<Long> friendIdOtherUser = otherUser.getFriends();
-
-        //Получаем общих пользователей.
-        Set<Long> mutualFriendId = new HashSet<>(friendIdUser);
-        mutualFriendId.retainAll(friendIdOtherUser);
-
         Collection<UserDto> allUserDto = new ArrayList<>();
-        Collection<User> allUser = userStorage.getUsersByIds(mutualFriendId);
+        Collection<User> allUser = userStorage.getFriendsCommon(user.getId(), otherUser.getId());
 
         for (User us : allUser) {
             allUserDto.add(UserMapper.mapToUserDto(us));
