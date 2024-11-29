@@ -2,12 +2,12 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import ru.yandex.practicum.filmorate.dal.UserDbStorage;
 import ru.yandex.practicum.filmorate.dto.UserDto;
 import ru.yandex.practicum.filmorate.dto.requests.NewUserRequest;
 import ru.yandex.practicum.filmorate.dto.requests.UpdateUserRequest;
 import ru.yandex.practicum.filmorate.mappers.UserMapper;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.storage.UserStorage;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,25 +16,23 @@ import java.util.Collection;
 @Slf4j
 public class UserService {
 
-    private final UserStorage userStorage;
+    private final UserDbStorage userDbStorage;
 
 
-    public UserService(UserStorage userStorage) {
-        this.userStorage = userStorage;
+    public UserService(UserDbStorage userDbStorage) {
+        this.userDbStorage = userDbStorage;
     }
 
     public UserDto create(NewUserRequest userRequest) {
-        User user = UserMapper.mapToUser(userRequest);
-        return UserMapper.mapToUserDto(userStorage.create(user));
+        return UserMapper.mapToUserDto(userDbStorage.createUser(UserMapper.mapToUser(userRequest)));
     }
 
     public UserDto update(UpdateUserRequest updateUserRequest) {
-        User user = UserMapper.mapToUserUpdate(updateUserRequest);
-        return UserMapper.mapToUserDto(userStorage.update(user));
+        return UserMapper.mapToUserDto(userDbStorage.updateUser(UserMapper.mapToUserUpdate(updateUserRequest)));
     }
 
     public Collection<UserDto> getAll() {
-        Collection<User> allUser = userStorage.getAll();
+        Collection<User> allUser = userDbStorage.findAll();
         Collection<UserDto> allUserDto = new ArrayList<>();
 
         for (User user : allUser) {
@@ -45,20 +43,20 @@ public class UserService {
     }
 
     public void addFriend(Long userId, Long friendId) {
-        userStorage.addFriend(userId, friendId);
+        userDbStorage.addFriend(userId, friendId);
     } //Добавить пользователя в друзья
 
     public void removeFriend(Long userId, Long friendId) {
-        userStorage.removeFriend(userId, friendId);
+        userDbStorage.removeFriend(userId, friendId);
     } //Удалить пользователя из друзей
 
     public Collection<UserDto> getAllUserFriends(Long userId) {
 
         //Проверяем, что такой пользователь существует
-        userStorage.getUser(userId);
+        userDbStorage.findById(userId);
 
         //Получаем друзей этого пользователя
-        Collection<User> allUserFriends = userStorage.getAllUserFriends(userId);
+        Collection<User> allUserFriends = userDbStorage.getAllUserFriends(userId);
         Collection<UserDto> allUserDto = new ArrayList<>();
 
         if (allUserFriends.isEmpty()) {
@@ -75,11 +73,11 @@ public class UserService {
 
     public Collection<UserDto> getFriendsCommon(Long userId, Long otherUserId) {
         //Проверяем, что такие пользователи существуют.
-        User user = userStorage.getUser(userId);
-        User otherUser = userStorage.getUser(otherUserId);
+        User user = userDbStorage.findById(userId);
+        User otherUser = userDbStorage.findById(otherUserId);
 
         Collection<UserDto> allUserDto = new ArrayList<>();
-        Collection<User> allUser = userStorage.getFriendsCommon(user.getId(), otherUser.getId());
+        Collection<User> allUser = userDbStorage.getFriendsCommon(user.getId(), otherUser.getId());
 
         for (User us : allUser) {
             allUserDto.add(UserMapper.mapToUserDto(us));

@@ -6,9 +6,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.dal.mappers.UserRowMapper;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.*;
 
 @Slf4j
@@ -37,9 +39,14 @@ public class UserDbStorage extends BaseDbStorage<User> {
     }
 
     //Создает нового пользователя
-    public void createUser(User user) {
+    public User createUser(User user) {
+        log.trace("Получен запрос на добавление нового пользователя");
 
-        insert(
+        //Проходим валидацию полей.
+        passValidationCreate(user);
+        log.debug("Валидация пройдена.");
+
+        Long lastId = insertGetId(
                 INSERT_QUERY,
                 user.getName(),
                 user.getEmail(),
@@ -47,18 +54,10 @@ public class UserDbStorage extends BaseDbStorage<User> {
                 user.getBirthday()
         );
 
-
-        Optional<Long> lastId = getLastId();
-
-
-        if (lastId.isPresent()) {
-            user.setId(lastId.get()); //Устанавливаем id пользователя, которое получили от БД
-        } else {
-            throw new NotFoundException("Не найден ни один пользователь в БД");
-        }
-
+        user.setId(lastId); //Устанавливаем id пользователя, которое получили от БД
 
         log.info("Пользователь {} сохранен в базе данных", user.getId());
+        return user;
     }
 
     public List<User> findAll() {
@@ -85,12 +84,42 @@ public class UserDbStorage extends BaseDbStorage<User> {
             }
         });
 
+        log.info("Предали информацию по все доступным пользователям.");
         return new ArrayList<>(userMap.values());
     }
 
-    public void updateUser(User user) {
+    public User updateUser(User updateUser) {
+        log.trace("Получен запрос на обновление пользователя");
+
+        //Проверяем корректность переданного ID
+        if (updateUser.getId() == null) {
+            log.warn("Валидация не пройдена. Id должен быть указан");
+            throw new ValidationException("Id должен быть указан");
+        }
+
+        User user = findById(updateUser.getId());
+
+        //Валидируем поля
+        if (updateUser.getName() != null && !updateUser.getName().isBlank()) {
+            user.setName(updateUser.getName());
+        }
+
+        if (updateUser.getEmail() != null && !updateUser.getEmail().isBlank() && updateUser.getEmail().contains("@")) {
+            user.setEmail(updateUser.getEmail());
+        }
+
+        if (updateUser.getLogin() != null && !updateUser.getLogin().isBlank() && !updateUser.getLogin().contains(" ")) {
+            user.setLogin(updateUser.getLogin());
+        }
+
+        if (updateUser.getBirthday() != null && updateUser.getBirthday().isBefore(LocalDate.now())) {
+            user.setBirthday(updateUser.getBirthday());
+        }
         jdbcTemplate.update(UPDATE_QUERY, user.getEmail(), user.getLogin(), user.getName(), user.getBirthday(),
                 user.getId());
+
+        log.info("Обновлен пользователь {}", updateUser.getId());
+        return user;
     }
 
     public User findById(Long id) {
@@ -181,5 +210,91 @@ public class UserDbStorage extends BaseDbStorage<User> {
         final String FIND_LAST_ID_QUERY = "SELECT MAX(id) FROM users";
         return Optional.ofNullable(jdbcTemplate.queryForObject(FIND_LAST_ID_QUERY, Long.class, params));
     } //Получаем последний id в таблице
+
+    private void passValidationCreate(User user) {
+        //Проверяем корректность заполнения полей.
+        if (user.getEmail() == null || user.getEmail().isBlank() || !user.getEmail().contains("@")) {
+            log.warn("Валидация не пройдена. Некорректная почта");
+            throw new ValidationException("Электронная почта не может быть пустой и должна содержать символ @");
+        } else if (user.getLogin() == null || user.getLogin().isBlank() || user.getLogin().contains(" ")) {
+            log.warn("Валидация не пройдена. Некорректный логин {}", user.getLogin());
+            throw new ValidationException("Логин не может быть пустым или содержать пробелы");
+        } else if (user.getBirthday() == null || user.getBirthday().isAfter(LocalDate.now())) {
+            log.warn("Валидация не пройдена. Некорректная дата рождения {}", user.getBirthday());
+            throw new ValidationException("Некорректная дата рождения");
+        } else if (user.getFriends() == null) {
+            log.warn("Валидация не пройдена. Список друзей в запросе {}",
+                    (Object) null);
+            throw new ValidationException("Список друзей в запросе null");
+        }
+
+        //Перезаписываем имя пользователя на его логин, если оно не было получено.
+        if (user.getName() == null || user.getName().isBlank()) {
+            log.trace("Имя пользователя не было получено, перезаписали на логин.");
+            user.setName(user.getLogin());
+        }
+    }
+
+    public void addFriend(Long userId, Long friendId) {
+
+        //Проверяем, что такие пользователи существуют в бд и указаны корректно
+        if (userId.equals(friendId)) {
+            log.warn("Пользователь с id {} хочет добавить в друзья сам себя", userId);
+            throw new NotFoundException("Нельзя добавить в друзья самого себя");
+        }
+
+        User user = findById(userId);
+        User otherUser = findById(friendId);
+
+
+        if (user == null) {
+            log.warn("Нет пользователя с id {}", userId);
+            throw new NotFoundException("Нет пользователя с id " + userId);
+        }
+
+        if (otherUser == null) {
+            log.warn("Нет пользователя с id {}", friendId);
+            throw new NotFoundException("Нет пользователя с id " + friendId);
+        }
+
+        //Проверяем, что пользователь не был добавлен в друзья ранее
+        if (checkFriendship(userId, friendId)) {
+            log.warn("Пользователь {} уже в друзьях пользователя {}", friendId, userId);
+            throw new NotFoundException("Пользователи уже дружат" + friendId);
+        }
+
+        //Добавляем пользователей в друзья в БД
+        userFriendDbStorage.addFriend(userId, friendId);
+
+        log.info("Пользователь {} добавил в друзья пользователя {}", userId, friendId);
+    }
+
+    public void removeFriend(Long userId, Long friendId) {
+
+        //Проверяем, что такие пользователи существуют и являются друзьями
+        User user = findById(userId);
+        User otherUser = findById(friendId);
+
+        if (user == null) {
+            log.warn("Нет пользователя с id {}", userId);
+            throw new NotFoundException("Нет пользователя с id " + userId);
+        }
+
+        if (otherUser == null) {
+            log.warn("Нет пользователя с id {}", friendId);
+            throw new NotFoundException("Нет пользователя с id " + friendId);
+        }
+
+        if (checkFriendship(userId, friendId)) {
+            userFriendDbStorage.removeFriend(userId, friendId, friendId, userId);
+            log.info("Пользователь {} удалил из друзей пользователя {}", userId, friendId);
+        } else {
+            log.warn("Пользователь {} не дружит с пользователем {}", friendId, userId);
+        }
+    }
+
+    private boolean checkFriendship(Long userId, Long friendId) {
+        return userFriendDbStorage.checkFriendship(userId, friendId) == 1;
+    } //Проверяем, являются ли пользователи друзьями.
 }
 

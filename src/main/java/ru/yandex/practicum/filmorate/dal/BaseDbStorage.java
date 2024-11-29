@@ -6,7 +6,11 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,7 +21,30 @@ public class BaseDbStorage<T> {
     protected final RowMapper<T> mapper;
     private final Class<T> entityType;
 
-    //Сохраняет данные в таблице
+    //Сохраняет данные в таблице и возвращает сгенерированный Id
+    protected Long insertGetId(String query, Object... params) {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
+        try {
+            jdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+                // Устанавливаем параметры
+                for (int i = 0; i < params.length; i++) {
+                    ps.setObject(i + 1, params[i]);
+                }
+                return ps;
+            }, keyHolder);
+
+            // Возвращаем сгенерированный ID
+            return keyHolder.getKey() != null ? keyHolder.getKey().longValue() : null;
+
+        } catch (DataAccessException e) {
+            log.error("Ошибка при добавлении данных: {}", e.getMessage());
+            throw new RuntimeException("Ошибка при сохранении в БД " + e.getMessage());
+        }
+    } //Вставляем данные в таблицу
+
+    //Сохраняет данные в таблице без генерации id
     protected void insert(String query, Object... params) {
 
         try {
@@ -28,6 +55,7 @@ public class BaseDbStorage<T> {
 
         } catch (DataAccessException e) {
             log.error("Ошибка при добавлении данных: {}", e.getMessage());
+            throw new RuntimeException("Ошибка при сохранении в БД " + e.getMessage());
         }
     } //Вставляем данные в таблицу
 

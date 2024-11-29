@@ -33,4 +33,5 @@ public class LikesDbStorage extends BaseDbStorage<Film> {
     public Integer checkLike(Object... params) {
         return jdbcTemplate.queryForObject(CHECK_LIKE_QUERY, Integer.class, params);
     } //Проверяем, ставил ли пользователь лайк фильму
+
 }
