@@ -52,4 +52,5 @@ public class MpaDbStorage extends BaseDbStorage<Film> {
             return mpa;
         });
     }
+
 }

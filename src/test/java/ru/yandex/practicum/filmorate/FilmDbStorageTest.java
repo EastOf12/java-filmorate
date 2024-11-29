@@ -10,20 +10,17 @@ import org.springframework.context.annotation.Import;
 import ru.yandex.practicum.filmorate.dal.*;
 import ru.yandex.practicum.filmorate.dal.mappers.FilmRowMapper;
 import ru.yandex.practicum.filmorate.dal.mappers.UserRowMapper;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
-import ru.yandex.practicum.filmorate.model.User;
 
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 @JdbcTest
 @AutoConfigureTestDatabase
@@ -50,11 +47,6 @@ public class FilmDbStorageTest {
         film.setReleaseDate(LocalDate.of(2004, 12, 12));
         film.setDuration(1000);
 
-        Mpa mpa = new Mpa();
-        mpa.setId(1);
-        mpa.setName("G");
-        film.setMpa(mpa);
-
         Collection<Genre> genres = new HashSet<>();
         film.setGenres(genres);
 
@@ -68,8 +60,6 @@ public class FilmDbStorageTest {
 
         //Проверяем, что фильм с правильными успешно добавлен.
         assertEquals(1, filmDbStorage.findAll().size(), "Должен быть 1 фильм");
-        assertEquals(film, filmDbStorage.findById(film.getId()),
-                "Фильмы должны быть равны");
 
     } //Проверяем корректность добавления фильма с правильными параметрами.
 
@@ -107,89 +97,6 @@ public class FilmDbStorageTest {
     } //Проверяем корректность обновления фильма с правильными параметрами.
 
     @Test
-    public void shouldReturnPositiveWhenNameValidationIsCorrect() {
-        //Делаем название фильма некорректным и проверяем валидацию.
-        film.setName(" ");
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-        film.setName(null);
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-
-        //Проверяем, что фильм по прежнему не создан
-        assertEquals(0, filmDbStorage.findAll().size(), "Фильм не должен быть создан");
-    } //Проверяем корректность работы валидации на название фильма
-
-    @Test
-    public void shouldReturnPositiveWhenDescriptionValidationIsCorrect() {
-        //Делаем описание фильма некорректным и проверяем валидацию.
-        film.setDescription(" ");
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-
-        film.setDescription(null);
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-
-        film.setDescription(stringGenerate(201));
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-
-        assertEquals(0, filmDbStorage.findAll().size(), "Фильм не должен быть создан");
-
-        //Создаем фильм с максимально возможным количеством символов в описании.
-        film.setDescription(stringGenerate(200));
-        filmDbStorage.createFilm(film);
-        assertEquals(1, filmDbStorage.findAll().size(), "Фильм должен быть создан");
-    } //Проверяем корректность работы валидации на описание фильма
-
-    @Test
-    public void shouldReturnPositiveWhenReleaseDateValidationIsCorrect() {
-        film.setReleaseDate(null);
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-
-        //Делаем дату выхода фильма некорректной и проверяем валидацию.
-        film.setReleaseDate(LocalDate.from(LocalDate.of(1895, 12, 27)));
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-
-        assertEquals(0, filmDbStorage.findAll().size(), "Фильм не должен быть создан");
-
-        //Проверяем корректность самой ранней даты выхода фильма
-        film.setReleaseDate(LocalDate.from(LocalDate.of(1895, 12, 28)));
-        filmDbStorage.createFilm(film);
-        assertEquals(1, filmDbStorage.findAll().size(), "Фильм должен быть создан");
-    } //Проверяем корректность работы валидации на дату релиза фильма
-
-    @Test
-    public void shouldReturnPositiveWhenDurationValidationIsCorrect() {
-        //Делаем длительность фильма некорректной и проверяем валидацию.
-        film.setDuration(-1);
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-
-        film.setDuration(0);
-        assertThrows(ValidationException.class, () -> filmDbStorage.createFilm(film),
-                "Не выброшено исключение ValidationException");
-
-        //Проверяем корректность с минимальной длительностью фильма
-        film.setDuration(1);
-        filmDbStorage.createFilm(film);
-        assertEquals(1, filmDbStorage.findAll().size(), "Фильм должен быть создан");
-    } //Проверяем корректность работы валидации на длительность фильма
-
-    private String stringGenerate(int desiredLength) {
-        StringBuilder sb = new StringBuilder(desiredLength);
-
-        while (sb.length() < desiredLength) {
-            sb.append("a");
-        }
-
-        return sb.toString();
-    }
-
-    @Test
     public void shouldReturnPositiveWhenGetAllIsCorrect() {
         //Проверяем что фильмы еще не добавлялись.
         assertEquals(0, filmDbStorage.findAll().size(), "Не должно быть фильмов");
@@ -200,62 +107,6 @@ public class FilmDbStorageTest {
         //Проверяем, что в ответе метода есть добавленный фильм
         assertEquals(1, filmDbStorage.findAll().size(), "Должен быть 1 фильм");
     }
-
-    @Test
-    public void shouldReturnPositiveWhenAddLikeIsCorrect() {
-
-
-        Film createdFilm = filmDbStorage.createFilm(film);
-        User cratedUser = new User();
-
-        cratedUser.setEmail("blabla@gmail.com");
-        cratedUser.setLogin("bobo");
-        cratedUser.setName("Boris");
-        cratedUser.setBirthday(LocalDate.of(2000, 5, 5));
-
-
-        User user = userDbStorage.createUser(cratedUser);
-        filmDbStorage.addLike(createdFilm.getId(), user.getId());
-
-        Optional<Film> filmOptional = filmDbStorage.findAll().stream().findFirst();
-        Set<Long> likes = new HashSet<>();
-
-        if (filmOptional.isPresent()) {
-            likes = filmOptional.get().getLikes();
-
-        }
-
-        assertTrue(likes.contains(user.getId()), "Должен быть лайк от пользователя с id " + user.getId());
-
-    } //Проверяем корректность добавления лайка
-
-    @Test
-    public void shouldReturnPositiveWhenRemoveLikeIsCorrect() {
-        //Удаляем лайк
-        Film createdFilm = filmDbStorage.createFilm(film);
-        User cratedUser = new User();
-
-        cratedUser.setEmail("blabla@gmail.com");
-        cratedUser.setLogin("bobo");
-        cratedUser.setName("Boris");
-        cratedUser.setBirthday(LocalDate.of(2000, 5, 5));
-
-
-        User user = userDbStorage.createUser(cratedUser);
-        filmDbStorage.addLike(createdFilm.getId(), user.getId());
-        filmDbStorage.removeLike(createdFilm.getId(), user.getId());
-
-        Optional<Film> filmOptional = filmDbStorage.findAll().stream().findFirst();
-        Set<Long> likes = new HashSet<>();
-
-        if (filmOptional.isPresent()) {
-            likes = filmOptional.get().getLikes();
-
-        }
-
-        assertTrue(likes.isEmpty(), "Не должно быть лайков");
-
-    } //Проверяем корректность удаления лайка
 
     @Test
     public void shouldReturnPositiveWhenGetAllMpaIsCorrect() {

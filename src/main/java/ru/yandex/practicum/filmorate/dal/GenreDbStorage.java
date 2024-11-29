@@ -8,7 +8,7 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 
-import java.util.Collection;
+import java.util.*;
 
 @Slf4j
 @Repository
@@ -53,5 +53,39 @@ public class GenreDbStorage extends BaseDbStorage<Film> {
             return genre;
         });
     }
+
+    public List<Film> addGenres(List<Film> films) {
+        if (films.isEmpty()) {
+            return films;
+        }
+
+        String inSql = String.join(",", Collections.nCopies(films.size(), "?"));
+
+        List<Long> filmIds = films.stream().map(Film::getId).toList();
+
+        final String sqlQuery = "SELECT fg.film_id, g.id AS genre_id, g.name AS genre_name " +
+                "FROM film_genres fg " +
+                "JOIN genres g ON fg.genre_id = g.id " +
+                "WHERE fg.film_id IN (" + inSql + ")";
+
+        Map<Long, Set<Genre>> filmGenresMap = new HashMap<>();
+
+        jdbcTemplate.query(sqlQuery, (rs) -> {
+            Long filmId = rs.getLong("film_id");
+            Genre genre = new Genre(rs.getInt("genre_id"), rs.getString("genre_name"));
+
+            filmGenresMap
+                    .computeIfAbsent(filmId, k -> new HashSet<>())
+                    .add(genre);
+        }, filmIds.toArray());
+
+        films.forEach(film -> {
+            Set<Genre> genres = filmGenresMap.getOrDefault(film.getId(), new HashSet<>());
+            film.setGenres(genres); // Устанавливаем жанры фильму
+        });
+
+        return films;
+    }
+
 }
 

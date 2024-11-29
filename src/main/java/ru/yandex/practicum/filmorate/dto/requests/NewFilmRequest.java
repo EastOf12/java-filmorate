@@ -13,8 +13,10 @@ public class NewFilmRequest {
     private String name;
     private String description;
     private Integer duration;
+
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate releaseDate;
+
     private Mpa mpa;
     private Collection<Genre> genres;
 }
