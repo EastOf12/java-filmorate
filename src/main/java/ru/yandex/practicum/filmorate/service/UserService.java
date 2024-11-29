@@ -1,150 +1,88 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.dal.UserDbStorage;
+import ru.yandex.practicum.filmorate.dto.UserDto;
+import ru.yandex.practicum.filmorate.dto.requests.NewUserRequest;
+import ru.yandex.practicum.filmorate.dto.requests.UpdateUserRequest;
+import ru.yandex.practicum.filmorate.mappers.UserMapper;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.storage.UserStorage;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
 
 @Service
 @Slf4j
 public class UserService {
 
-    private final UserStorage userStorage;
+    private final UserDbStorage userDbStorage;
 
-    @Autowired
-    public UserService(UserStorage userStorage) {
-        this.userStorage = userStorage;
+
+    public UserService(UserDbStorage userDbStorage) {
+        this.userDbStorage = userDbStorage;
     }
 
-    public User create(User user) {
-        return userStorage.create(user);
+    public UserDto create(NewUserRequest userRequest) {
+        return UserMapper.mapToUserDto(userDbStorage.createUser(UserMapper.mapToUser(userRequest)));
     }
 
-    public User update(User updateUser) {
-        return userStorage.update(updateUser);
+    public UserDto update(UpdateUserRequest updateUserRequest) {
+        return UserMapper.mapToUserDto(userDbStorage.updateUser(UserMapper.mapToUserUpdate(updateUserRequest)));
     }
 
-    public Collection<User> getAll() {
-        return userStorage.getAll();
+    public Collection<UserDto> getAll() {
+        Collection<User> allUser = userDbStorage.findAll();
+        Collection<UserDto> allUserDto = new ArrayList<>();
+
+        for (User user : allUser) {
+            allUserDto.add(UserMapper.mapToUserDto(user));
+        }
+
+        return allUserDto;
     }
 
     public void addFriend(Long userId, Long friendId) {
-        //Проверяем, что такие пользователи существуют и указаны корректно
-        if (userId.equals(friendId)) {
-            log.warn("Пользователь с id {} хочет добавить в друзья сам себя", userId);
-            throw new NotFoundException("Нельзя добавить в друзья самого себя");
-        }
-
-        User user = userStorage.getUser(userId);
-        User otherUser = userStorage.getUser(friendId);
-        if (user == null) {
-            log.warn("Нет пользователя с id {}", userId);
-            throw new NotFoundException("Нет пользователя с id " + userId);
-        }
-
-        if (otherUser == null) {
-            log.warn("Нет пользователя с id {}", friendId);
-            throw new NotFoundException("Нет пользователя с id " + friendId);
-        }
-
-        //Проверяем, что пользователь не был добавлен в друзья ранее
-        Set<Long> friends = user.getFriends();
-        if (friends.contains(friendId)) {
-            log.warn("Пользователь {} уже в друзьях пользователя {}", friendId, userId);
-            throw new NotFoundException("Пользователи уже дружат" + friendId);
-        }
-
-        //Добавлям пользователей в друзья
-        friends.add(friendId);
-        otherUser.getFriends().add(userId);
-
-        log.info("Пользователь {} добавил в друзья пользователя {}", userId, friendId);
-    } //Добавить пользотвателя в друзья
+        userDbStorage.addFriend(userId, friendId);
+    } //Добавить пользователя в друзья
 
     public void removeFriend(Long userId, Long friendId) {
-        //Проверяем, что такие пользователи существуют
-        User user = userStorage.getUser(userId);
-        User otherUser = userStorage.getUser(friendId);
-
-        if (user == null) {
-            log.warn("Нет пользователя с id {}", userId);
-            throw new NotFoundException("Нет пользователя с id " + userId);
-        }
-
-        if (otherUser == null) {
-            log.warn("Нет пользователя с id {}", friendId);
-            throw new NotFoundException("Нет пользователя с id " + friendId);
-        }
-
-        //Проверяем, что пользователи дружат
-        Set<Long> userFriends = user.getFriends();
-        Set<Long> otherUserFriends = otherUser.getFriends();
-        if (userFriends.contains(friendId) || otherUserFriends.contains(userId)) {
-            userFriends.remove(friendId);
-            otherUserFriends.remove(userId);
-            log.info("Пользователь {} удалил из друзей пользователя {}", userId, friendId);
-        } else {
-            log.warn("Пользователи {} и {} не дружат ", friendId, userId);
-        }
+        userDbStorage.removeFriend(userId, friendId);
     } //Удалить пользователя из друзей
 
-    public Collection<User> getAllUserFriends(Long userId) {
+    public Collection<UserDto> getAllUserFriends(Long userId) {
+
         //Проверяем, что такой пользователь существует
-        User user = userStorage.getUser(userId);
+        userDbStorage.findById(userId);
 
-        if (user == null) {
-            log.warn("Нет пользователя с id {}", userId);
-            throw new NotFoundException("Нет пользователя с id " + userId);
-        }
+        //Получаем друзей этого пользователя
+        Collection<User> allUserFriends = userDbStorage.getAllUserFriends(userId);
+        Collection<UserDto> allUserDto = new ArrayList<>();
 
-        Set<Long> friendsId = user.getFriends();
-        if (friendsId.isEmpty()) {
+        if (allUserFriends.isEmpty()) {
             log.info("У пользователя {} нет друзей", userId);
             return new ArrayList<>();
         } else {
-            List<User> allUserFriends = new ArrayList<>();
-            for (Long friendId : friendsId) {
-                allUserFriends.add(userStorage.getUser(friendId));
+            for (User us : allUserFriends) {
+                allUserDto.add(UserMapper.mapToUserDto(us));
             }
 
-            log.info("Все друзья пользователя {}", userId);
-            return allUserFriends;
+            return allUserDto;
         }
     } //Получить всех друзей пользователя
 
-    public Collection<User> getFriendsCommon(Long userId, Long otherUserId) {
+    public Collection<UserDto> getFriendsCommon(Long userId, Long otherUserId) {
         //Проверяем, что такие пользователи существуют.
-        User user = userStorage.getUser(userId);
-        User otherUser = userStorage.getUser(otherUserId);
+        User user = userDbStorage.findById(userId);
+        User otherUser = userDbStorage.findById(otherUserId);
 
-        if (user == null) {
-            log.warn("Нет пользователя с id {}", userId);
-            throw new NotFoundException("Нет пользователя с id " + userId);
+        Collection<UserDto> allUserDto = new ArrayList<>();
+        Collection<User> allUser = userDbStorage.getFriendsCommon(user.getId(), otherUser.getId());
+
+        for (User us : allUser) {
+            allUserDto.add(UserMapper.mapToUserDto(us));
         }
 
-        if (otherUser == null) {
-            log.warn("Нет пользователя с id {}", otherUserId);
-            throw new NotFoundException("Нет пользователя с id " + otherUserId);
-        }
-
-        //Получаем id друзей пользователей
-        Set<Long> friendIdUser = user.getFriends();
-        Set<Long> friendIdOtherUser = otherUser.getFriends();
-
-        //Получаем общих пользователей.
-        Set<Long> mutualFriendId = new HashSet<>(friendIdUser);
-        mutualFriendId.retainAll(friendIdOtherUser);
-
-        List<User> mutualFriends = new ArrayList<>();
-
-        for (Long idUser : mutualFriendId) {
-            mutualFriends.add(userStorage.getUser(idUser));
-        }
-
-        return mutualFriends;
-    } //Возвращает общих друзей пользотвателей.
+        return allUserDto;
+    } //Возвращает общих друзей пользователей.
 }
